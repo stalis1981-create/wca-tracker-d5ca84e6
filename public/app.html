@@ -143,7 +143,8 @@
                         <button onclick="refreshData(event)" class="text-8px bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded shadow-sm hover:bg-blue-200 transition">↻ Uppdatera</button>
                     </div>
                 </div>
-                <div id="sectionB" class="flex flex-col gap-1 max-h-[25rem] overflow-y-auto custom-scroll pr-1 relative">
+                <div id="eventFilterBox" class="flex flex-wrap gap-1 mb-1.5"></div>
+                <div id="sectionB" class="flex flex-col gap-1 max-h-[20rem] overflow-y-auto overflow-x-hidden custom-scroll pr-1 relative border border-gray-200 dark:border-gray-700 rounded">
                     </div>
             </div>
 
@@ -180,7 +181,7 @@
 
     const BASE_URL = "https://www.worldcubeassociation.org/api/v0";
     
-    let appState = { trackedByComp: {}, favComps: [], theme: 'dark', showOnlyTracked: true, textSizeMode: 0 };
+    let appState = { trackedByComp: {}, favComps: [], theme: 'dark', showOnlyTracked: true, textSizeMode: 0, eventFilterByComp: {} };
     try {
         const saved = localStorage.getItem('wcaTrackerState');
         if (saved) {
@@ -197,6 +198,7 @@
     let currentTab = 'ongoing';
     let activityMap = {}; 
     let globalResultsData = []; 
+    let autoRefreshTimer = null;
 
     // Tillämpa Textstorlek (Global skalning)
     function applyTextSize() {
@@ -310,7 +312,20 @@
         currentWcifData = { persons: [], events: [] };
         currentCompId = null;
         globalResultsData = [];
+        stopAutoRefresh();
         renderCompetitionsList();
+    }
+
+    function startAutoRefresh() {
+        stopAutoRefresh();
+        autoRefreshTimer = setInterval(() => {
+            if (currentCompId) {
+                fetchAndRenderLiveResults();
+            }
+        }, 60000);
+    }
+    function stopAutoRefresh() {
+        if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
     }
 
     // --- TÄVLINGSLISTA ---
@@ -469,19 +484,6 @@
                 } catch(e) {}
             }
             
-            const autoAddNames = ["algot ljuslin"];
-            const personsArray = currentWcifData.persons || [];
-            
-            personsArray.forEach(p => {
-                if (p.name && autoAddNames.some(name => p.name.toLowerCase().includes(name.toLowerCase()))) {
-                    const idStr = String(p.wcaUserId || p.registrantId);
-                    if (!appState.trackedByComp[currentCompId].includes(idStr)) {
-                        appState.trackedByComp[currentCompId].push(idStr);
-                    }
-                }
-            });
-            saveState();
-
             // Rendera UI
             renderDashboard(); 
             showPage('page-competition-details', 'Översikt');
@@ -492,6 +494,9 @@
             
             // Hämta Scrambles från webben
             fetchScramblesFromWeb();
+
+            // Auto-uppdatera resultat varje minut
+            startAutoRefresh();
 
         } catch (error) {
             showToast("Kunde inte ladda tävlingen.");
@@ -811,6 +816,60 @@
         renderResultsHTML();
     }
 
+    function renderEventFilter() {
+        const box = document.getElementById('eventFilterBox');
+        if (!box) return;
+        const allEvents = [...new Set(globalResultsData.map(r => r.eventId))];
+        if (allEvents.length === 0) { box.innerHTML = ''; return; }
+        if (!appState.eventFilterByComp[currentCompId]) {
+            appState.eventFilterByComp[currentCompId] = [...allEvents];
+        }
+        const selected = appState.eventFilterByComp[currentCompId];
+        const allBtn = `<button onclick="setAllEventFilters(true)" class="text-7px bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded shadow-sm hover:bg-gray-300">Alla</button>
+                       <button onclick="setAllEventFilters(false)" class="text-7px bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded shadow-sm hover:bg-gray-300">Inga</button>`;
+        const chips = allEvents.map(ev => {
+            const on = selected.includes(ev);
+            const cls = on
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 opacity-60';
+            return `<button onclick="toggleEventFilter('${ev}')" class="flex items-center gap-1 text-8px px-1.5 py-0.5 rounded border ${cls} transition" title="${ev}">
+                ${getEventIcon(ev, 'w-3 h-3')}<span class="uppercase">${ev}</span>
+            </button>`;
+        }).join('');
+        box.innerHTML = allBtn + chips;
+    }
+
+    function toggleEventFilter(eventId) {
+        if (!appState.eventFilterByComp[currentCompId]) appState.eventFilterByComp[currentCompId] = [];
+        const arr = appState.eventFilterByComp[currentCompId];
+        const idx = arr.indexOf(eventId);
+        if (idx >= 0) arr.splice(idx, 1); else arr.push(eventId);
+        saveState();
+        renderResultsHTML();
+    }
+
+    function setAllEventFilters(selectAll) {
+        const allEvents = [...new Set(globalResultsData.map(r => r.eventId))];
+        appState.eventFilterByComp[currentCompId] = selectAll ? [...allEvents] : [];
+        saveState();
+        renderResultsHTML();
+    }
+
+    function toggleStarFromResult(idStr, name) {
+        if (!appState.trackedByComp[currentCompId]) appState.trackedByComp[currentCompId] = [];
+        const arr = appState.trackedByComp[currentCompId].map(String);
+        const i = arr.indexOf(String(idStr));
+        if (i >= 0) {
+            appState.trackedByComp[currentCompId] = arr.filter(x => x !== String(idStr));
+        } else {
+            appState.trackedByComp[currentCompId].push(String(idStr));
+        }
+        saveState();
+        renderDashboard();
+        recalculateTrackedFlags();
+        renderResultsHTML();
+    }
+
     function updateFilterButtonUI() {
         const btn = document.getElementById('toggleFilterBtn');
         if(!btn) return;
@@ -979,7 +1038,8 @@
 
     function renderResultsHTML() {
         const secB = document.getElementById('sectionB');
-        
+        renderEventFilter();
+
         if (!globalResultsData || globalResultsData.length === 0) {
             secB.innerHTML = `<div class="p-4 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg m-1"><span class="block text-xl mb-1">⏳</span><p class="text-9px text-gray-500 dark:text-gray-400">Inga resultat finns tillgängliga ännu. Tävlingen har antingen inte börjat eller så är resultaten inte publicerade.</p></div>`;
             return;
@@ -988,7 +1048,13 @@
         let html = '';
         let shownCount = 0;
 
-        globalResultsData.forEach(eventRound => {
+        const selectedEvents = appState.eventFilterByComp[currentCompId];
+        const filteredData = globalResultsData.filter(er => {
+            if (!selectedEvents || selectedEvents.length === 0) return true;
+            return selectedEvents.includes(er.eventId);
+        });
+
+        filteredData.forEach(eventRound => {
             let rowsToRender = eventRound.results;
             
             if (appState.showOnlyTracked) {
@@ -1017,11 +1083,17 @@
                     const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40 border-l-2 border-blue-500' : 'bg-white dark:bg-gray-800 border-l-2 border-transparent';
                     const textClass = r.isTracked ? 'text-blue-800 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300';
                     const badgeHtml = r.isTracked && !appState.showOnlyTracked ? '<span class="ml-1.5 text-7px bg-blue-500 text-white px-1 py-0.5 rounded-sm uppercase tracking-wider">Vald</span>' : '';
+                    const starColor = r.isTracked ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600';
+                    const starIdRaw = r.wcaId || r.pId || r.pName;
+                    const starIdStr = String(starIdRaw).replace(/'/g, "\\'");
+                    const safeName = String(r.pName || '').replace(/'/g, "\\'");
+                    const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none px-0.5 ${starColor} hover:scale-110 transition-transform shrink-0" title="Stjärnmarkera">★</button>`;
 
                     rowsHtml += `
                         <div class="py-1 px-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0 text-10px ${bgClass}">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-1.5 truncate pr-1">
+                                    ${starBtn}
                                     <span class="font-mono text-gray-500 w-4 text-right shrink-0">${r.pos === 9999 ? '-' : r.pos}</span>
                                     <span class="truncate ${textClass}">${r.pName}</span>
                                     ${badgeHtml}
