@@ -871,7 +871,25 @@
         // FÖRSÖK 2: WCA LIVE
         if (!hasData) {
             try {
-                const liveQuery = `{ competition(id: "${currentCompId}") { competitionEvents { event { id } rounds { id results { ranking best average attempts { result } person { name wcaId } } } } } }`;
+                // WCA Live använder ett internt numeriskt ID, inte WCA-tävlings-ID:t.
+                // Slå därför först upp Live-ID via filter-sökning på wcaId.
+                const lookupQuery = `{ competitions(filter: "${currentCompId}") { id wcaId } }`;
+                const lookupRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: lookupQuery })
+                });
+                let liveId = null;
+                if (lookupRes.ok) {
+                    const lookupJson = await lookupRes.json();
+                    const matches = lookupJson?.data?.competitions || [];
+                    const match = matches.find(c => c.wcaId === currentCompId) || matches[0];
+                    if (match) liveId = match.id;
+                }
+
+                if (!liveId) throw new Error('Tävlingen finns inte i WCA Live');
+
+                const liveQuery = `{ competition(id: "${liveId}") { competitionEvents { event { id } rounds { id results { ranking best average attempts { result } person { name wcaId } } } } } }`;
                 const liveRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
