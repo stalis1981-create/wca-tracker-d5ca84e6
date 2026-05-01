@@ -191,6 +191,7 @@
 
     let currentWcifData = { persons: [], events: [] }; 
     let currentCompId = null;
+    let currentCompName = null;
     let currentCompEndDate = null;
     let allCompetitions = []; 
     let currentTab = 'ongoing';
@@ -425,6 +426,7 @@
         try {
             currentCompId = comp.id;
             currentCompEndDate = comp.end_date;
+            currentCompName = comp.name;
             
             // Standard är att visa enbart valda
             appState.showOnlyTracked = true; 
@@ -874,19 +876,29 @@
         if (!hasData) {
             try {
                 // WCA Live använder ett internt numeriskt ID, inte WCA-tävlings-ID:t.
-                // Slå därför först upp Live-ID via filter-sökning på wcaId.
-                const lookupQuery = `{ competitions(filter: "${currentCompId}") { id wcaId } }`;
-                const lookupRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: lookupQuery })
-                });
+                // `competitions(filter: ...)` söker på NAMN, inte wcaId. Slå därför upp via namnet.
+                async function lookupLiveId(filterStr) {
+                    if (!filterStr) return null;
+                    const q = `{ competitions(filter: ${JSON.stringify(filterStr)}) { id wcaId name } }`;
+                    const r = await fetch('https://live.worldcubeassociation.org/api/graphql', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: q })
+                    });
+                    if (!r.ok) return null;
+                    const j = await r.json();
+                    const matches = j?.data?.competitions || [];
+                    if (matches.length === 0) return null;
+                    const exact = matches.find(c => c.wcaId === currentCompId);
+                    return (exact || matches[0]).id;
+                }
+
                 let liveId = null;
-                if (lookupRes.ok) {
-                    const lookupJson = await lookupRes.json();
-                    const matches = lookupJson?.data?.competitions || [];
-                    const match = matches.find(c => c.wcaId === currentCompId) || matches[0];
-                    if (match) liveId = match.id;
+                if (currentCompName) liveId = await lookupLiveId(currentCompName);
+                if (!liveId) liveId = await lookupLiveId(currentCompId);
+                // Sista utvägen: prova ett kortare namnfragment (första ordet).
+                if (!liveId && currentCompName) {
+                    liveId = await lookupLiveId(currentCompName.split(/\s+/)[0]);
                 }
 
                 if (!liveId) throw new Error('Tävlingen finns inte i WCA Live');
