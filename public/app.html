@@ -891,55 +891,67 @@
 
                 if (!liveId) throw new Error('Tävlingen finns inte i WCA Live');
 
-                const liveQuery = `{ competition(id: "${liveId}") { competitionEvents { event { id } rounds { id results { ranking best average attempts { result } person { name wcaId } } } } } }`;
-                const liveRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
+                // Steg 1: hämta struktur (events + rounds) — utan results, för att undvika "too complex"-fel.
+                const structureQuery = `{ competition(id: "${liveId}") { competitionEvents { event { id } rounds { id name } } } }`;
+                const structRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: liveQuery })
+                    body: JSON.stringify({ query: structureQuery })
                 });
-                
-                if (liveRes.ok) {
-                    const liveJson = await liveRes.json();
-                    const compEvents = liveJson?.data?.competition?.competitionEvents;
-                    
-                    if (compEvents && compEvents.length > 0) {
-                        let tempHasData = false;
-                        compEvents.forEach(ce => {
-                            (ce.rounds || []).forEach(round => {
-                                if (round.results && round.results.length > 0) tempHasData = true;
-                            });
-                        });
 
-                        if (tempHasData) {
-                            hasData = true;
-                            compEvents.forEach(ce => {
-                                (ce.rounds || []).forEach(round => {
-                                    if (round.results && round.results.length > 0) {
-                                        let rId = round.id.split('-')[1] || "1";
-                                        let roundNameMap = { '1': 'Omgång 1', '2': 'Omgång 2', '3': 'Semifinal', 'c': 'Komb 1', 'd': 'Komb 2', 'e': 'Komb 3', 'f': 'Final', 'b': 'B-Final' };
-                                        let roundName = roundNameMap[rId] || rId.toUpperCase();
-                                        
-                                        let parsedResults = round.results.map(res => {
-                                            const wcaId = res.person?.wcaId;
-                                            const pName = res.person?.name || "Okänd";
-                                            const pId = wcaId; 
-                                            
-                                            return {
-                                                pId: pId,
-                                                wcaId: wcaId,
-                                                pName: pName,
-                                                pos: res.ranking || 9999,
-                                                best: res.best,
-                                                average: res.average,
-                                                attempts: res.attempts || [],
-                                                isTracked: isPersonTracked(wcaId, pId, pName)
-                                            };
-                                        });
-                                        globalResultsData.push({ eventId: ce.event.id, roundName: roundName, results: parsedResults });
-                                    }
-                                });
+                if (structRes.ok) {
+                    const structJson = await structRes.json();
+                    const compEvents = structJson?.data?.competition?.competitionEvents || [];
+
+                    // Steg 2: hämta resultat för varje round individuellt (parallellt).
+                    const roundJobs = [];
+                    compEvents.forEach(ce => {
+                        (ce.rounds || []).forEach(round => {
+                            roundJobs.push({ eventId: ce.event.id, roundId: round.id, roundName: round.name });
+                        });
+                    });
+
+                    const roundResults = await Promise.all(roundJobs.map(async job => {
+                        try {
+                            const q = `{ round(id: "${job.roundId}") { results { ranking best average attempts { result } person { name wcaId } } } }`;
+                            const r = await fetch('https://live.worldcubeassociation.org/api/graphql', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ query: q })
                             });
-                        }
+                            if (!r.ok) return null;
+                            const j = await r.json();
+                            const results = j?.data?.round?.results || [];
+                            return { ...job, results };
+                        } catch (e) { return null; }
+                    }));
+
+                    let tempHasData = false;
+                    roundResults.forEach(rr => {
+                        if (rr && rr.results && rr.results.length > 0) tempHasData = true;
+                    });
+
+                    if (tempHasData) {
+                        hasData = true;
+                        roundResults.forEach(rr => {
+                            if (!rr || !rr.results || rr.results.length === 0) return;
+                            const parsedResults = rr.results.map(res => {
+                                const wcaId = res.person?.wcaId;
+                                const pName = res.person?.name || "Okänd";
+                                const pId = wcaId;
+                                return {
+                                    pId: pId,
+                                    wcaId: wcaId,
+                                    pName: pName,
+                                    pos: res.ranking || 9999,
+                                    best: res.best,
+                                    average: res.average,
+                                    attempts: (res.attempts || []).map(a => a.result),
+                                    isTracked: isPersonTracked(wcaId, pId, pName)
+                                };
+                            });
+                            globalResultsData.push({ eventId: rr.eventId, roundName: rr.roundName, results: parsedResults });
+                        });
                     }
                 }
             } catch(e) {}
