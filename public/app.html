@@ -984,7 +984,7 @@
 
                     const roundResults = await Promise.all(roundJobs.map(async job => {
                         try {
-                            const q = `{ round(id: "${job.roundId}") { results { ranking best average attempts { result } person { name wcaId } } } }`;
+                            const q = `{ round(id: "${job.roundId}") { advancementCondition { type level } results { ranking advancing best average singleRecordTag averageRecordTag attempts { result } person { name wcaId } } } }`;
                             const r = await fetch('https://live.worldcubeassociation.org/api/graphql', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -993,7 +993,8 @@
                             if (!r.ok) return null;
                             const j = await r.json();
                             const results = j?.data?.round?.results || [];
-                            return { ...job, results };
+                            const advancementCondition = j?.data?.round?.advancementCondition || null;
+                            return { ...job, results, advancementCondition };
                         } catch (e) { return null; }
                     }));
 
@@ -1018,10 +1019,13 @@
                                     best: res.best,
                                     average: res.average,
                                     attempts: (res.attempts || []).map(a => a.result),
+                                    advancing: !!res.advancing,
+                                    singleRecordTag: res.singleRecordTag || null,
+                                    averageRecordTag: res.averageRecordTag || null,
                                     isTracked: isPersonTracked(wcaId, pId, pName)
                                 };
                             });
-                            globalResultsData.push({ eventId: rr.eventId, roundName: rr.roundName, results: parsedResults });
+                            globalResultsData.push({ eventId: rr.eventId, roundName: rr.roundName, results: parsedResults, advancementCondition: rr.advancementCondition });
                         });
                     }
                 }
