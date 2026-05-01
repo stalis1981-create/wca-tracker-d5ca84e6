@@ -470,19 +470,6 @@
                 } catch(e) {}
             }
             
-            const autoAddNames = ["algot ljuslin"];
-            const personsArray = currentWcifData.persons || [];
-            
-            personsArray.forEach(p => {
-                if (p.name && autoAddNames.some(name => p.name.toLowerCase().includes(name.toLowerCase()))) {
-                    const idStr = String(p.wcaUserId || p.registrantId);
-                    if (!appState.trackedByComp[currentCompId].includes(idStr)) {
-                        appState.trackedByComp[currentCompId].push(idStr);
-                    }
-                }
-            });
-            saveState();
-
             // Rendera UI
             renderDashboard(); 
             showPage('page-competition-details', 'Översikt');
@@ -493,6 +480,9 @@
             
             // Hämta Scrambles från webben
             fetchScramblesFromWeb();
+
+            // Auto-uppdatera resultat varje minut
+            startAutoRefresh();
 
         } catch (error) {
             showToast("Kunde inte ladda tävlingen.");
