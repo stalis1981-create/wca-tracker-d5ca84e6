@@ -1,0 +1,1124 @@
+```html
+<!DOCTYPE html>
+<html lang="sv" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WCA Tracker</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontSize: {
+                        '7px': '0.4375rem',
+                        '8px': '0.5rem',
+                        '9px': '0.5625rem',
+                        '10px': '0.625rem',
+                        '11px': '0.6875rem',
+                    },
+                    spacing: {
+                        '35px': '2.1875rem',
+                        '45px': '2.8125rem'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cubing-icons/css/cubing-icons.css">
+
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s;
+        }
+        html.dark body { background-color: #111827; }
+        .app-container {
+            max-width: 33.75rem; 
+            margin: 0 auto;
+            background-color: white;
+            min-height: 100vh;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            position: relative;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        html.dark .app-container { background-color: #1f2937; color: #f3f4f6; }
+        
+        .page { display: none; padding: 0.5rem; padding-bottom: 2.5rem; } 
+        .page.active { display: block; }
+        
+        .loader {
+            border: 0.25rem solid #f3f3f3;
+            border-top: 0.25rem solid #3b82f6;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+            margin: 0.625rem auto;
+        }
+        html.dark .loader { border-color: #374151; border-top-color: #3b82f6; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .tab-btn {
+            flex: 1; text-align: center; padding: 0.375rem 0; font-weight: 600; 
+            color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.2s; font-size: 0.75rem;
+        }
+        html.dark .tab-btn { color: #9ca3af; }
+        .tab-btn.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
+        html.dark .tab-btn.active { color: #60a5fa; border-color: #60a5fa; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        html.dark .custom-scroll::-webkit-scrollbar-thumb { background: #4b5563; }
+        
+        /* Smidig animation för felmeddelanden */
+        .toast-enter { animation: fadeinup 0.3s forwards; }
+        @keyframes fadeinup { from { opacity: 0; transform: translate(-50%, 1.25rem); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+        /* Scramble bocka-av-stil */
+        .scramble-done {
+            text-decoration: line-through;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header class="bg-blue-600 dark:bg-blue-800 text-white px-3 py-1.5 sticky top-0 z-30 flex items-center justify-between shadow-md transition-colors">
+        <div class="flex items-center">
+            <button id="backBtn" class="mr-2 hidden font-bold text-xl" onclick="goBack()">&#8592;</button>
+            <h1 id="appTitle" class="text-sm font-bold">WCA Tracker</h1>
+        </div>
+        <div class="flex items-center gap-1">
+            <button onclick="toggleTextSize()" class="text-sm font-bold px-2 hover:opacity-80 transition" title="Ändra textstorlek">aA</button>
+            <button onclick="toggleTheme()" class="text-lg px-2 hover:opacity-80 transition" title="Ändra tema">
+                <span id="themeIcon">☀️</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="page-competitions" class="page active">
+        <div class="flex border-b border-gray-200 dark:border-gray-700 mb-1.5 sticky top-0 bg-white dark:bg-gray-800 z-10 -mx-2 px-2">
+            <button onclick="changeTab('ongoing')" id="tab-ongoing" class="tab-btn active">Pågående</button>
+            <button onclick="changeTab('upcoming')" id="tab-upcoming" class="tab-btn">Kommande</button>
+            <button onclick="changeTab('past')" id="tab-past" class="tab-btn">Tidigare</button>
+            <button onclick="changeTab('favorites')" id="tab-favorites" class="tab-btn">⭐</button>
+        </div>
+        <div id="loadingComps" class="loader"></div>
+        <div id="competitionsList" class="space-y-1.5"></div> 
+    </div>
+
+    <div id="page-competition-details" class="page">
+        <h2 id="compNameHeader" class="text-sm font-bold mb-0.5 text-blue-800 dark:text-blue-400 leading-tight">Tävlingsnamn</h2>
+        <p class="text-10px text-gray-500 dark:text-gray-400 mb-1.5" id="compDateHeader">Datum</p>
+
+        <div class="bg-blue-50 dark:bg-gray-800 p-1.5 rounded-md mb-1.5 shadow-sm border border-blue-100 dark:border-gray-700 relative z-20">
+            <div class="relative w-full">
+                <input type="text" id="searchInput" placeholder="Sök deltagare..." autocomplete="off" oninput="handleSearchInput()" onfocus="handleSearchInput()" class="w-full py-1 px-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-400">
+                <div id="suggestionsBox" class="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-lg hidden max-h-48 overflow-y-auto custom-scroll">
+                </div>
+            </div>
+        </div>
+
+        <div id="selectedChips" class="flex flex-wrap gap-0.5 mb-1.5"></div>
+
+        <div id="dashboardContent" class="hidden space-y-1.5">
+            <div class="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-1.5 shadow-sm">
+                <h3 class="font-bold text-blue-600 dark:text-blue-400 mb-1 border-b dark:border-gray-700 pb-0.5 text-11px">A: Grenar</h3>
+                <div id="sectionA" class="grid gap-1"></div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-1.5 shadow-sm">
+                <div class="flex justify-between items-center mb-1 border-b dark:border-gray-700 pb-0.5">
+                    <h3 class="font-bold text-blue-600 dark:text-blue-400 text-11px">B: Resultat & Tider</h3>
+                    <div class="flex gap-1">
+                        <button id="toggleFilterBtn" onclick="toggleResultFilter()" class="text-8px bg-blue-500 text-white px-1.5 py-0.5 rounded shadow-sm hover:bg-blue-600 transition">Visar: Valda</button>
+                        <button onclick="refreshData(event)" class="text-8px bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded shadow-sm hover:bg-blue-200 transition">↻ Uppdatera</button>
+                    </div>
+                </div>
+                <div id="sectionB" class="flex flex-col gap-1 max-h-[25rem] overflow-y-auto custom-scroll pr-1 relative">
+                    </div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-1.5 shadow-sm">
+                <h3 class="font-bold text-blue-600 dark:text-blue-400 mb-1 border-b dark:border-gray-700 pb-0.5 text-11px">C: Schema</h3>
+                <div id="sectionC" class="grid gap-1 items-start"></div>
+            </div>
+            
+            <div class="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-1.5 shadow-sm">
+                <h3 class="font-bold text-blue-600 dark:text-blue-400 mb-1 border-b dark:border-gray-700 pb-0.5 text-11px">D: Personbästa</h3>
+                <div id="sectionD" class="grid gap-1 items-start"></div>
+            </div>
+
+            <div class="bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-1.5 shadow-sm">
+                <h3 class="font-bold text-blue-600 dark:text-blue-400 mb-1 border-b dark:border-gray-700 pb-0.5 text-11px">E: Blandningar</h3>
+                <p class="text-9px text-gray-500 mb-1.5">Hämtas direkt från WCA:s flikar. Klicka på en blandning för att bocka av den.</p>
+                <div id="sectionE" class="flex flex-col gap-1 max-h-[25rem] overflow-y-auto custom-scroll pr-1"></div>
+            </div>
+        </div>
+
+        <div id="emptyState" class="text-center py-4 text-gray-400 dark:text-gray-500">
+            <span class="text-xl block mb-1">👥</span>
+            <p class="text-10px">Sök och lägg till deltagare.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- HÄMTAR OFFICIELLA IKONER ---
+    function getEventIcon(eventId, sizeClass = "w-4 h-4") {
+        const url = `https://raw.githubusercontent.com/cubing/icons/main/src/svg/event/${eventId}.svg`;
+        return `<img src="${url}" class="${sizeClass} inline-block dark:invert opacity-80" alt="${eventId}" onerror="this.style.display='none'">`;
+    }
+
+    const BASE_URL = "https://www.worldcubeassociation.org/api/v0";
+    
+    let appState = { trackedByComp: {}, favComps: [], theme: 'dark', showOnlyTracked: true, textSizeMode: 0 };
+    try {
+        const saved = localStorage.getItem('wcaTrackerState');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            appState = { ...appState, ...parsed };
+        }
+    } catch (e) {}
+
+    let currentWcifData = { persons: [], events: [] }; 
+    let currentCompId = null;
+    let currentCompEndDate = null;
+    let allCompetitions = []; 
+    let currentTab = 'ongoing';
+    let activityMap = {}; 
+    let globalResultsData = []; 
+
+    // Tillämpa Textstorlek (Global skalning)
+    function applyTextSize() {
+        const sizes = ['16px', '18px', '21px']; // Normal, Stor, Störst
+        const mode = appState.textSizeMode || 0;
+        document.documentElement.style.fontSize = sizes[mode];
+    }
+
+    function toggleTextSize() {
+        appState.textSizeMode = ((appState.textSizeMode || 0) + 1) % 3;
+        applyTextSize();
+        saveState();
+        
+        const labels = ["Normal storlek", "Stor text", "Störst text"];
+        showToast(`🔍 ${labels[appState.textSizeMode]}`);
+    }
+
+    // Tema-hantering
+    if (appState.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeIcon').innerText = '☀️';
+    } else {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('themeIcon').innerText = '🌙';
+    }
+    
+    // Aktivera vald textstorlek vid uppstart
+    applyTextSize();
+
+    function saveState() {
+        try { localStorage.setItem('wcaTrackerState', JSON.stringify(appState)); } catch(e) {}
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-enter fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-3 py-1.5 rounded-lg shadow-xl text-xs font-bold z-50 whitespace-nowrap';
+        toast.innerText = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if(toast) {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 3500);
+    }
+
+    function toggleTheme() {
+        const html = document.documentElement;
+        if (html.classList.contains('dark')) {
+            html.classList.remove('dark');
+            appState.theme = 'light';
+            document.getElementById('themeIcon').innerText = '🌙';
+        } else {
+            html.classList.add('dark');
+            appState.theme = 'dark';
+            document.getElementById('themeIcon').innerText = '☀️';
+        }
+        saveState();
+    }
+
+    document.addEventListener('click', (e) => {
+        if(!e.target.closest('#searchInput') && !e.target.closest('#suggestionsBox')) {
+            document.getElementById('suggestionsBox')?.classList.add('hidden');
+        }
+    });
+
+    function buildActivityMap(wcif) {
+        activityMap = {};
+        if (!wcif || !wcif.schedule || !wcif.schedule.venues) return;
+        try {
+            wcif.schedule.venues.forEach(venue => {
+                (venue.rooms || []).forEach(room => {
+                    (room.activities || []).forEach(activity => {
+                        activityMap[activity.id] = activity;
+                        if (activity.childActivities) {
+                            activity.childActivities.forEach(child => {
+                                activityMap[child.id] = child;
+                            });
+                        }
+                    });
+                });
+            });
+        } catch(e) {}
+    }
+
+    function formatWcaTime(centiseconds, eventId) {
+        if (!centiseconds || centiseconds <= 0) return "-";
+        if (eventId === '333fm' || eventId === '333mbf') return centiseconds;
+        let totalSeconds = centiseconds / 100;
+        if (totalSeconds >= 60) {
+            let minutes = Math.floor(totalSeconds / 60);
+            let seconds = (totalSeconds % 60).toFixed(2);
+            if (seconds < 10) seconds = "0" + seconds;
+            return `${minutes}:${seconds}`;
+        }
+        return totalSeconds.toFixed(2);
+    }
+
+    function showPage(pageId, title, showBack = true) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        document.getElementById('appTitle').innerText = title;
+        document.getElementById('backBtn').style.display = showBack ? 'block' : 'none';
+        document.getElementById('searchInput').value = '';
+        document.getElementById('suggestionsBox').classList.add('hidden');
+    }
+
+    function goBack() {
+        showPage('page-competitions', 'WCA Tracker', false);
+        currentWcifData = { persons: [], events: [] };
+        currentCompId = null;
+        globalResultsData = [];
+        renderCompetitionsList();
+    }
+
+    // --- TÄVLINGSLISTA ---
+    async function fetchCompetitions() {
+        const loader = document.getElementById('loadingComps');
+        const list = document.getElementById('competitionsList');
+        try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            const startStr = sixMonthsAgo.toISOString().split('T')[0];
+
+            const response = await fetch(`${BASE_URL}/competitions?country_iso2=SE&sort=-start_date&start=${startStr}`);
+            if (!response.ok) throw new Error("Kunde inte hämta API");
+            
+            const data = await response.json();
+            if(Array.isArray(data)) {
+                allCompetitions = data;
+            } else {
+                throw new Error("Fel dataformat");
+            }
+            
+            loader.style.display = 'none';
+            renderCompetitionsList(); 
+        } catch (error) {
+            loader.style.display = 'none';
+            list.innerHTML = '<p class="text-red-500 text-10px text-center">Kunde inte ladda tävlingar från WCA.</p>';
+        }
+    }
+
+    function changeTab(tabName) {
+        currentTab = tabName;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        renderCompetitionsList();
+    }
+
+    function toggleFavComp(compId, event) {
+        event.stopPropagation(); 
+        if (appState.favComps.includes(compId)) {
+            appState.favComps = appState.favComps.filter(id => id !== compId);
+        } else {
+            appState.favComps.push(compId);
+        }
+        saveState();
+        renderCompetitionsList();
+    }
+
+    function renderCompetitionsList() {
+        try {
+            const list = document.getElementById('competitionsList');
+            list.innerHTML = '';
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            let filteredComps = allCompetitions.filter(comp => {
+                const startDate = new Date(comp.start_date);
+                const endDate = new Date(comp.end_date);
+                startDate.setHours(0,0,0,0); endDate.setHours(23,59,59,999); 
+                
+                if (currentTab === 'favorites') return appState.favComps.includes(comp.id);
+                if (currentTab === 'ongoing') return today >= startDate && today <= endDate;
+                if (currentTab === 'upcoming') return startDate > today;
+                if (currentTab === 'past') return endDate < today;
+            });
+
+            if (currentTab === 'upcoming') {
+                filteredComps.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+            } else {
+                filteredComps.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+            }
+
+            if (filteredComps.length === 0) {
+                let msg = currentTab === 'favorites' ? "Inga favorittävlingar sparade." : "Inga tävlingar hittades.";
+                list.innerHTML = `<p class="text-gray-500 dark:text-gray-400 text-center py-2 text-10px">${msg}</p>`;
+                return;
+            }
+
+            filteredComps.forEach(comp => {
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-gray-800 p-1.5 rounded-md shadow-sm border border-gray-200 dark:border-gray-700 active:bg-gray-50 dark:active:bg-gray-700 cursor-pointer flex justify-between items-center";
+                card.onclick = () => selectCompetition(comp);
+                
+                let statusBadge = '';
+                const startDate = new Date(comp.start_date);
+                const endDate = new Date(comp.end_date);
+                startDate.setHours(0,0,0,0); endDate.setHours(23,59,59,999); 
+                if (today >= startDate && today <= endDate) {
+                    statusBadge = '<span class="bg-green-100 text-green-800 text-8px font-semibold px-1 py-0.5 rounded ml-1 align-middle">Pågår</span>';
+                }
+
+                const isFav = appState.favComps.includes(comp.id);
+                const starClass = isFav ? "text-yellow-400" : "text-gray-300 dark:text-gray-600";
+
+                card.innerHTML = `
+                    <div class="flex-grow pr-1.5">
+                        <h3 class="font-bold text-gray-800 dark:text-gray-100 text-xs leading-tight">${comp.name} ${statusBadge}</h3>
+                        <p class="text-9px text-gray-500 dark:text-gray-400">${comp.start_date} till ${comp.end_date}</p>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="toggleFavComp('${comp.id}', event)" class="text-base px-1 hover:scale-110 transition-transform ${starClass}">★</button>
+                        <span class="text-blue-500 dark:text-blue-400 font-bold text-base">&#8250;</span>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        } catch(e) {}
+    }
+
+
+    // --- HUVUDFUNKTION FÖR TÄVLING ---
+    async function selectCompetition(comp) {
+        try {
+            currentCompId = comp.id;
+            currentCompEndDate = comp.end_date;
+            
+            // Standard är att visa enbart valda
+            appState.showOnlyTracked = true; 
+            
+            if (!appState.trackedByComp[currentCompId]) appState.trackedByComp[currentCompId] = [];
+            if (appState.trackedByComp[currentCompId].length > 20) {
+                appState.trackedByComp[currentCompId] = []; 
+            }
+            saveState();
+
+            document.getElementById('compNameHeader').innerText = comp.name;
+            document.getElementById('compDateHeader').innerText = `${comp.start_date} till ${comp.end_date}`;
+            showPage('page-competition-details', 'Laddar...');
+            
+            currentWcifData = { persons: [], events: [] }; 
+            
+            try {
+                const response = await fetch(`${BASE_URL}/competitions/${comp.id}/wcif/public`);
+                if(response.ok) {
+                    currentWcifData = await response.json();
+                    buildActivityMap(currentWcifData); 
+                }
+            } catch(e) {}
+            
+            if (!currentWcifData.persons || currentWcifData.persons.length === 0) {
+                currentWcifData.persons = [];
+                try {
+                    const compRes = await fetch(`${BASE_URL}/competitions/${comp.id}/competitors`);
+                    if (compRes.ok) {
+                        const compData = await compRes.json();
+                        currentWcifData.persons = compData.map(c => ({
+                            name: c.name || c.person?.name,
+                            wcaUserId: c.wca_id || c.person?.wca_id,
+                            registrantId: c.wca_id || String(c.id), 
+                            registration: null,
+                            personalBests: [],
+                            assignments: []
+                        }));
+                    }
+                } catch(e) {}
+            }
+            
+            const autoAddNames = ["algot ljuslin"];
+            const personsArray = currentWcifData.persons || [];
+            
+            personsArray.forEach(p => {
+                if (p.name && autoAddNames.some(name => p.name.toLowerCase().includes(name.toLowerCase()))) {
+                    const idStr = String(p.wcaUserId || p.registrantId);
+                    if (!appState.trackedByComp[currentCompId].includes(idStr)) {
+                        appState.trackedByComp[currentCompId].push(idStr);
+                    }
+                }
+            });
+            saveState();
+
+            // Rendera UI
+            renderDashboard(); 
+            showPage('page-competition-details', 'Översikt');
+            updateFilterButtonUI();
+            
+            // Hämta resultat
+            await fetchAndRenderLiveResults();
+            
+            // Hämta Scrambles från webben
+            fetchScramblesFromWeb();
+
+        } catch (error) {
+            showToast("Kunde inte ladda tävlingen.");
+            goBack();
+        }
+    }
+
+    async function refreshData(event) {
+        if(!currentCompId) return;
+        const btn = event.currentTarget;
+        btn.innerText = "Laddar...";
+        
+        try {
+            const response = await fetch(`${BASE_URL}/competitions/${currentCompId}/wcif/public`);
+            if(response.ok) {
+                currentWcifData = await response.json();
+                buildActivityMap(currentWcifData);
+                renderDashboard();
+            }
+        } catch(e) {}
+        
+        await fetchAndRenderLiveResults();
+        fetchScramblesFromWeb();
+        btn.innerText = "↻ Uppdatera";
+    }
+
+    // --- SÖK OCH LÄGG TILL ---
+    function handleSearchInput() {
+        try {
+            const input = document.getElementById('searchInput').value.toLowerCase().trim();
+            const box = document.getElementById('suggestionsBox');
+            
+            if (!currentWcifData || !currentWcifData.persons) return;
+
+            let matches = currentWcifData.persons;
+            if (input) {
+                matches = matches.filter(p => p.name && p.name.toLowerCase().includes(input));
+            }
+
+            if (matches.length > 0) {
+                box.innerHTML = matches.slice(0, 30).map(p => {
+                    const idStr = String(p.wcaUserId || p.registrantId);
+                    const trackedStrings = (appState.trackedByComp[currentCompId] || []).map(String);
+                    
+                    const isAdded = trackedStrings.includes(idStr);
+                    const textColor = isAdded ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100';
+                    
+                    return `
+                        <div onclick="addCompetitor('${idStr}', '${p.name.replace(/'/g, "\\'")}')" class="px-2 py-1 border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-11px flex justify-between items-center transition-colors">
+                            <span class="${textColor} font-semibold">${p.name}</span>
+                            ${isAdded ? '<span class="text-9px text-gray-400">Tillagd</span>' : '<span class="text-blue-500 font-bold text-9px">+ Lägg till</span>'}
+                        </div>
+                    `;
+                }).join('');
+                box.classList.remove('hidden');
+            } else {
+                box.innerHTML = `<div class="p-1.5 text-10px text-gray-500 dark:text-gray-400 text-center">Inga hittades.</div>`;
+                box.classList.remove('hidden');
+            }
+        } catch(e) {}
+    }
+
+    function addCompetitor(id, pName) {
+        try {
+            const idStr = String(id); 
+            document.getElementById('searchInput').value = '';
+            document.getElementById('suggestionsBox').classList.add('hidden');
+            
+            if (!appState.trackedByComp[currentCompId]) appState.trackedByComp[currentCompId] = [];
+            const trackedStrings = appState.trackedByComp[currentCompId].map(String);
+            
+            if (!trackedStrings.includes(idStr)) {
+                appState.trackedByComp[currentCompId].push(idStr);
+                saveState(); 
+                
+                renderDashboard(); 
+                recalculateTrackedFlags();
+                renderResultsHTML(); 
+            }
+        } catch(e) {}
+    }
+
+    function removeCompetitor(id) {
+        try {
+            const idStr = String(id);
+            if (!appState.trackedByComp[currentCompId]) return;
+            appState.trackedByComp[currentCompId] = appState.trackedByComp[currentCompId].filter(savedId => String(savedId) !== idStr);
+            saveState();
+            
+            renderDashboard();
+            recalculateTrackedFlags();
+            renderResultsHTML();
+        } catch(e) {}
+    }
+
+    function renderDashboard() {
+        try {
+            const emptyState = document.getElementById('emptyState');
+            const dashboard = document.getElementById('dashboardContent');
+            const chipsContainer = document.getElementById('selectedChips');
+            
+            const secA = document.getElementById('sectionA');
+            const secC = document.getElementById('sectionC');
+            const secD = document.getElementById('sectionD');
+
+            chipsContainer.innerHTML = '';
+            secA.innerHTML = '';
+            secC.innerHTML = '';
+            secD.innerHTML = '';
+
+            const trackedList = appState.trackedByComp[currentCompId] || [];
+
+            if (trackedList.length === 0) {
+                emptyState.style.display = 'block';
+                dashboard.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            dashboard.style.display = 'block';
+
+            // DYNAMISK GRID: Fyll utrymmet baserat på hur många man följer
+            const gridClassAC = trackedList.length === 1 ? 'grid-cols-1' : 'grid-cols-2';
+            const gridClassD = trackedList.length === 1 ? 'grid-cols-1' : (trackedList.length === 2 ? 'grid-cols-2' : 'grid-cols-3');
+
+            secA.className = `grid ${gridClassAC} gap-1`;
+            secC.className = `grid ${gridClassAC} gap-1 items-start`;
+            secD.className = `grid ${gridClassD} gap-1 items-start`;
+
+            const personsArray = currentWcifData.persons || [];
+
+            trackedList.forEach(id => {
+                const idStr = String(id);
+                const person = personsArray.find(p => String(p.wcaUserId) === idStr || String(p.registrantId) === idStr);
+                
+                const safeName = person && person.name ? person.name.split(' ')[0] : "Vald Deltagare";
+
+                chipsContainer.innerHTML += `
+                    <div class="bg-blue-600 text-white px-1.5 py-0.5 rounded text-10px font-semibold flex items-center gap-1 shadow-sm">
+                        ${safeName}
+                        <button onclick="removeCompetitor('${idStr}')" class="hover:text-blue-200 text-sm leading-none">&times;</button>
+                    </div>
+                `;
+
+                if(!person) return; 
+
+                // Sektion A: Grenar
+                let eventsHtml = "<span class='text-9px text-gray-500'>Ej anmäld</span>";
+                if (person.registration && person.registration.status === 'accepted') {
+                    eventsHtml = (person.registration.eventIds || []).map(e => `
+                        <div class="flex items-center justify-center bg-gray-100 dark:bg-gray-700 w-6 h-6 rounded shadow-sm border border-gray-200 dark:border-gray-600" title="${e}">
+                            ${getEventIcon(e, 'w-4 h-4')}
+                        </div>
+                    `).join('');
+                }
+                secA.innerHTML += `
+                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm">
+                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 truncate">${person.name || "Okänd"}</h4>
+                        <div class="flex flex-wrap gap-1">${eventsHtml}</div>
+                    </div>
+                `;
+
+                // Sektion C: Schema
+                let scheduleHtml = '<p class="text-gray-500 dark:text-gray-400 text-9px p-1">Inga grupper.</p>';
+                if (person.assignments && person.assignments.length > 0) {
+                    const enrichedAssignments = person.assignments.map(ass => ({
+                        ...ass,
+                        activity: activityMap[ass.activityId],
+                        startTime: activityMap[ass.activityId] ? new Date(activityMap[ass.activityId].startTime) : new Date(0)
+                    })).sort((a, b) => a.startTime - b.startTime);
+
+                    const groupedByDay = {};
+                    enrichedAssignments.forEach(ass => {
+                        let dayStr = "Okänt datum";
+                        if (ass.startTime.getTime() !== 0) {
+                            try {
+                                dayStr = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', month: 'short', day: 'numeric' }).format(ass.startTime);
+                                dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
+                            } catch(e) {}
+                        }
+                        if (!groupedByDay[dayStr]) groupedByDay[dayStr] = [];
+                        groupedByDay[dayStr].push(ass);
+                    });
+
+                    let allGroupsHtml = '';
+                    for (const [dayStr, dayAss] of Object.entries(groupedByDay)) {
+                        let rowsHtml = '';
+                        dayAss.forEach(ass => {
+                            let roleStr = ass.assignmentCode;
+                            const roles = {'competitor': 'Tävlande', 'judge': 'Domare', 'scrambler': 'Blandare', 'runner': 'Löpare', 'staff-runner': 'Domare', 'staff-judge': 'Domare'};
+                            roleStr = roles[roleStr] || roleStr;
+                            
+                            let roleClasses = 'bg-gray-500 text-white';
+                            if (roleStr === 'Tävlande') roleClasses = 'bg-green-500 text-white';
+                            else if (roleStr === 'Domare') roleClasses = 'bg-blue-500 text-white';
+                            
+                            let timeStr = "-";
+                            let roundGroupHtml = "";
+                            let eventId = "Övrigt";
+
+                            if (ass.activity) {
+                                try {
+                                    timeStr = new Intl.DateTimeFormat('sv-SE', { hour: '2-digit', minute: '2-digit' }).format(ass.startTime);
+                                } catch(e) {}
+                                
+                                if (ass.activity.activityCode) {
+                                    eventId = ass.activity.activityCode.split('-')[0] || "Övrigt";
+                                    const parts = ass.activity.activityCode.split('-');
+                                    let r = parts.length > 1 ? parts[1].toUpperCase() : '';
+                                    let g = parts.length > 2 ? parts[2].toUpperCase() : '';
+                                    roundGroupHtml = `<span class="text-gray-700 dark:text-gray-300 font-bold text-9px ml-1">${r} ${g}</span>`;
+                                }
+                            }
+
+                            let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-3 h-3')} <span class="uppercase font-bold text-8px text-gray-500 dark:text-gray-400">${eventId}</span></div>` : '';
+
+                            rowsHtml += `
+                                <div class="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px">
+                                    <div class="font-semibold text-gray-800 dark:text-gray-200 w-8 flex-shrink-0 leading-tight">${timeStr}</div>
+                                    <div class="flex items-center flex-grow truncate px-1 min-w-0">${eventIconHtml}${roundGroupHtml}</div>
+                                    <div class="flex-shrink-0 ml-1">
+                                        <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        allGroupsHtml += `
+                            <div class="mb-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-sm overflow-hidden">
+                                <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 flex items-center">
+                                    <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-9px">${dayStr}</span>
+                                </div>
+                                <div class="px-1.5 py-0 bg-white dark:bg-gray-800">
+                                    ${rowsHtml}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    scheduleHtml = `<div class="pr-0.5">${allGroupsHtml}</div>`;
+                }
+                
+                secC.innerHTML += `
+                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm max-h-56 overflow-y-auto custom-scroll">
+                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 sticky top-0 bg-white dark:bg-gray-900 pb-0.5 z-10 truncate">${person.name || "Okänd"}</h4>
+                        ${scheduleHtml}
+                    </div>
+                `;
+
+                // Sektion D: Personbästa
+                let pbHtml = '<p class="text-gray-500 dark:text-gray-400 text-9px p-1">Nybörjare</p>';
+                if (person.personalBests && person.personalBests.length > 0) {
+                    const groupedPbs = {};
+                    
+                    person.personalBests.forEach(pb => {
+                        if (!groupedPbs[pb.eventId]) {
+                            groupedPbs[pb.eventId] = { single: null, average: null, singleWR: '-', singleNR: '-', averageWR: '-', averageNR: '-' };
+                        }
+                        groupedPbs[pb.eventId][pb.type] = formatWcaTime(pb.best, pb.eventId);
+                    });
+
+                    let pbRows = '';
+                    for (const [eventId, times] of Object.entries(groupedPbs)) {
+                        pbRows += `
+                            <div class="flex flex-col py-1 border-b dark:border-gray-700 last:border-0">
+                                <div class="flex items-center gap-1 text-blue-600 dark:text-blue-400 mb-0.5">
+                                    ${getEventIcon(eventId, 'w-3 h-3')}
+                                    <span class="font-bold text-9px text-gray-700 dark:text-gray-300 uppercase">${eventId}</span>
+                                </div>
+                                <div class="flex justify-between w-full cursor-help group">
+                                    <span class="text-8px text-gray-400">SINGEL</span>
+                                    <span class="font-mono font-bold dark:text-gray-200 text-8px">${times.single || '-'}</span>
+                                </div>
+                                <div class="flex justify-between w-full cursor-help group">
+                                    <span class="text-8px text-gray-400">SNITT</span>
+                                    <span class="font-mono font-bold dark:text-gray-200 text-8px">${times.average || '-'}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    pbHtml = `<div>${pbRows}</div>`;
+                }
+                
+                secD.innerHTML += `
+                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm">
+                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 truncate">${person.name || "Okänd"}</h4>
+                        ${pbHtml}
+                    </div>
+                `;
+            });
+
+        } catch(e) {}
+    }
+
+
+    // --- RESULTAT-MOTOR ---
+    function isPersonTracked(wcaId, registrantId, pName) {
+        const trackedList = appState.trackedByComp[currentCompId] || [];
+        if (trackedList.length === 0) return false;
+        
+        if (registrantId && trackedList.includes(String(registrantId))) return true;
+        if (wcaId && trackedList.includes(String(wcaId))) return true;
+        
+        const personsArray = (currentWcifData && currentWcifData.persons) ? currentWcifData.persons : [];
+        const localP = personsArray.find(p => (pName && p.name && p.name.toLowerCase() === pName.toLowerCase()) || (wcaId && p.wcaUserId === wcaId));
+        
+        if (localP) {
+            if (localP.registrantId && trackedList.includes(String(localP.registrantId))) return true;
+            if (localP.wcaUserId && trackedList.includes(String(localP.wcaUserId))) return true;
+        }
+        return false;
+    }
+
+    function toggleResultFilter() {
+        appState.showOnlyTracked = !appState.showOnlyTracked;
+        saveState();
+        updateFilterButtonUI();
+        renderResultsHTML();
+    }
+
+    function updateFilterButtonUI() {
+        const btn = document.getElementById('toggleFilterBtn');
+        if(!btn) return;
+        btn.innerText = appState.showOnlyTracked ? "Visar: Valda" : "Visar: Alla";
+        btn.className = appState.showOnlyTracked 
+            ? "text-8px bg-blue-500 text-white px-1.5 py-0.5 rounded shadow-sm hover:bg-blue-600 transition" 
+            : "text-8px bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded shadow-sm hover:bg-gray-300 transition";
+    }
+
+    async function fetchAndRenderLiveResults() {
+        const secB = document.getElementById('sectionB');
+        secB.innerHTML = '<div class="py-4 flex flex-col items-center text-blue-500 text-10px font-bold"><div class="loader mb-2"></div>Hämtar resultat från WCA...</div>';
+        
+        globalResultsData = [];
+        let hasData = false;
+
+        // FÖRSÖK 1: WCA REST API
+        try {
+            const dbRes = await fetch(`${BASE_URL}/competitions/${currentCompId}/results`);
+            if (dbRes.ok) {
+                const dbResults = await dbRes.json();
+                if (dbResults && Array.isArray(dbResults) && dbResults.length > 0) {
+                    hasData = true;
+                    const grouped = {};
+                    dbResults.forEach(r => {
+                        const evId = r.eventId || r.event_id;
+                        const rdId = r.roundTypeId || r.round_type_id;
+                        if(!evId) return;
+                        if(!grouped[evId]) grouped[evId] = {};
+                        if(!grouped[evId][rdId]) grouped[evId][rdId] = [];
+                        grouped[evId][rdId].push(r);
+                    });
+
+                    for (const eventId in grouped) {
+                        for (const roundId in grouped[eventId]) {
+                            let roundNameMap = { '1': 'Omgång 1', '2': 'Omgång 2', '3': 'Semifinal', 'c': 'Komb 1', 'd': 'Komb 2', 'e': 'Komb 3', 'f': 'Final', 'b': 'B-Final' };
+                            let rName = roundNameMap[roundId] || String(roundId).toUpperCase();
+                            
+                            let parsedResults = grouped[eventId][roundId].map(res => {
+                                const pName = res.personName || res.person_name || "Okänd";
+                                const wcaId = res.wcaId || res.wca_id;
+                                const pId = res.personId || res.person_id || wcaId; 
+                                
+                                return {
+                                    pId: pId,
+                                    wcaId: wcaId,
+                                    pName: pName,
+                                    pos: res.pos || res.ranking || 9999,
+                                    best: res.best,
+                                    average: res.average,
+                                    attempts: res.attempts || [], 
+                                    isTracked: isPersonTracked(wcaId, pId, pName)
+                                };
+                            });
+                            globalResultsData.push({ eventId: eventId, roundName: rName, results: parsedResults });
+                        }
+                    }
+                }
+            }
+        } catch(e) {}
+
+        // FÖRSÖK 2: WCA LIVE
+        if (!hasData) {
+            try {
+                const liveQuery = `{ competition(id: "${currentCompId}") { competitionEvents { event { id } rounds { id results { ranking best average attempts { result } person { name wcaId } } } } } }`;
+                const liveRes = await fetch('https://live.worldcubeassociation.org/api/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: liveQuery })
+                });
+                
+                if (liveRes.ok) {
+                    const liveJson = await liveRes.json();
+                    const compEvents = liveJson?.data?.competition?.competitionEvents;
+                    
+                    if (compEvents && compEvents.length > 0) {
+                        let tempHasData = false;
+                        compEvents.forEach(ce => {
+                            (ce.rounds || []).forEach(round => {
+                                if (round.results && round.results.length > 0) tempHasData = true;
+                            });
+                        });
+
+                        if (tempHasData) {
+                            hasData = true;
+                            compEvents.forEach(ce => {
+                                (ce.rounds || []).forEach(round => {
+                                    if (round.results && round.results.length > 0) {
+                                        let rId = round.id.split('-')[1] || "1";
+                                        let roundNameMap = { '1': 'Omgång 1', '2': 'Omgång 2', '3': 'Semifinal', 'c': 'Komb 1', 'd': 'Komb 2', 'e': 'Komb 3', 'f': 'Final', 'b': 'B-Final' };
+                                        let roundName = roundNameMap[rId] || rId.toUpperCase();
+                                        
+                                        let parsedResults = round.results.map(res => {
+                                            const wcaId = res.person?.wcaId;
+                                            const pName = res.person?.name || "Okänd";
+                                            const pId = wcaId; 
+                                            
+                                            return {
+                                                pId: pId,
+                                                wcaId: wcaId,
+                                                pName: pName,
+                                                pos: res.ranking || 9999,
+                                                best: res.best,
+                                                average: res.average,
+                                                attempts: res.attempts || [],
+                                                isTracked: isPersonTracked(wcaId, pId, pName)
+                                            };
+                                        });
+                                        globalResultsData.push({ eventId: ce.event.id, roundName: roundName, results: parsedResults });
+                                    }
+                                });
+                            });
+                        }
+                    }
+                }
+            } catch(e) {}
+        }
+        
+        globalResultsData.sort((a, b) => {
+            if (a.eventId !== b.eventId) return a.eventId.localeCompare(b.eventId);
+            return a.roundName.localeCompare(b.roundName); 
+        });
+
+        renderResultsHTML();
+    }
+
+    function renderResultsHTML() {
+        const secB = document.getElementById('sectionB');
+        
+        if (!globalResultsData || globalResultsData.length === 0) {
+            secB.innerHTML = `<div class="p-4 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg m-1"><span class="block text-xl mb-1">⏳</span><p class="text-9px text-gray-500 dark:text-gray-400">Inga resultat finns tillgängliga ännu. Tävlingen har antingen inte börjat eller så är resultaten inte publicerade.</p></div>`;
+            return;
+        }
+
+        let html = '';
+        let shownCount = 0;
+
+        globalResultsData.forEach(eventRound => {
+            let rowsToRender = eventRound.results;
+            
+            if (appState.showOnlyTracked) {
+                rowsToRender = rowsToRender.filter(r => r.isTracked);
+            }
+
+            if (rowsToRender.length > 0) {
+                rowsToRender.sort((a, b) => (a.pos || 9999) - (b.pos || 9999));
+                
+                let rowsHtml = '';
+                rowsToRender.forEach(r => {
+                    let bestStr = (r.best && r.best > 0) ? formatWcaTime(r.best, eventRound.eventId) : (r.best === -1 ? 'DNF' : (r.best === -2 ? 'DNS' : '-'));
+                    let avgStr = (r.average && r.average > 0) ? formatWcaTime(r.average, eventRound.eventId) : (r.average === -1 ? 'DNF' : (r.average === -2 ? 'DNS' : '-'));
+                    
+                    let attemptsStr = '';
+                    if (r.attempts && r.attempts.length > 0) {
+                        attemptsStr = r.attempts.map(a => {
+                            let val = a.result;
+                            if (val === -1) return 'DNF';
+                            if (val === -2) return 'DNS';
+                            if (val === 0) return '';
+                            return formatWcaTime(val, eventRound.eventId);
+                        }).filter(a => a !== '').join(', ');
+                    }
+
+                    const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40 border-l-2 border-blue-500' : 'bg-white dark:bg-gray-800 border-l-2 border-transparent';
+                    const textClass = r.isTracked ? 'text-blue-800 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300';
+                    const badgeHtml = r.isTracked && !appState.showOnlyTracked ? '<span class="ml-1.5 text-7px bg-blue-500 text-white px-1 py-0.5 rounded-sm uppercase tracking-wider">Vald</span>' : '';
+
+                    rowsHtml += `
+                        <div class="py-1 px-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0 text-10px ${bgClass}">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center gap-1.5 truncate pr-1">
+                                    <span class="font-mono text-gray-500 w-4 text-right shrink-0">${r.pos === 9999 ? '-' : r.pos}</span>
+                                    <span class="truncate ${textClass}">${r.pName}</span>
+                                    ${badgeHtml}
+                                </div>
+                                <div class="flex gap-1.5 text-right shrink-0 font-mono">
+                                    <span class="w-35px text-9px text-gray-500 dark:text-gray-400" title="Bästa">${bestStr}</span>
+                                    <span class="w-35px text-9px font-bold ${r.isTracked ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}" title="Snitt">${avgStr}</span>
+                                </div>
+                            </div>
+                            <div class="pl-6 text-8px text-gray-400 dark:text-gray-500 font-mono tracking-tighter mt-0.5 truncate">
+                                ${attemptsStr}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `
+                    <div class="mb-1.5 border border-gray-200 dark:border-gray-600 rounded shadow-sm overflow-hidden">
+                        <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-1 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+                            <div class="flex items-center gap-1.5">
+                                ${getEventIcon(eventRound.eventId, 'w-3 h-3')}
+                                <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-10px">${eventRound.eventId} - ${eventRound.roundName}</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800">
+                            ${rowsHtml}
+                        </div>
+                    </div>
+                `;
+                shownCount += rowsToRender.length;
+            }
+        });
+
+        if (shownCount === 0 && appState.showOnlyTracked) {
+            secB.innerHTML = `
+                <div class="p-4 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg m-1">
+                    <p class="text-9px text-gray-500 dark:text-gray-400 mb-2">De valda deltagarna har inga inrapporterade resultat i systemet än.</p>
+                    <button onclick="toggleResultFilter()" class="bg-blue-50 dark:bg-gray-700 text-blue-600 dark:text-blue-400 font-bold text-9px px-2 py-1 rounded-md border border-blue-200 dark:border-gray-600 hover:bg-blue-100 dark:hover:bg-gray-600 transition shadow-sm">
+                        Visa alla resultat i tävlingen
+                    </button>
+                </div>`;
+        } else {
+            secB.innerHTML = html;
+        }
+    }
+
+    // --- MAGISK SKRAPNING AV BLANDNINGAR FRÅN VARJE GREN ---
+    async function fetchScramblesFromWeb() {
+        const secE = document.getElementById('sectionE');
+        secE.innerHTML = '<div class="py-4 flex flex-col items-center text-blue-500 text-9px font-bold"><div class="loader mb-2"></div>Hämtar blandningar från WCA...</div>';
+        
+        try {
+            let eventsToFetch = [];
+            if (currentWcifData && currentWcifData.events && currentWcifData.events.length > 0) {
+                eventsToFetch = currentWcifData.events.map(e => e.id);
+            } else if (globalResultsData.length > 0) {
+                eventsToFetch = [...new Set(globalResultsData.map(r => r.eventId))];
+            } else {
+                eventsToFetch = ['333', '222', '444', '333oh', 'pyram', 'skewb']; 
+            }
+
+            const fetchPromises = eventsToFetch.map(async (eventId) => {
+                try {
+                    const targetUrl = `https://www.worldcubeassociation.org/competitions/${currentCompId}/scrambles?event=${eventId}`;
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                    
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) return '';
+                    
+                    const htmlText = await res.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    
+                    const tables = doc.querySelectorAll('table');
+                    let eventScrambleHtml = '';
+                    
+                    tables.forEach(table => {
+                        const text = table.textContent;
+                        if (text.includes('R ') || text.includes('U ') || text.includes('F2') || text.includes('r ') || text.includes('u ')) {
+                            
+                            let prev = table.previousElementSibling;
+                            let title = "Blandningar";
+                            while(prev && !['H2','H3','H4', 'DIV'].includes(prev.tagName)) {
+                                prev = prev.previousElementSibling;
+                            }
+                            if (prev) title = prev.textContent.trim();
+                            
+                            let scramblesList = '';
+                            table.querySelectorAll('tr').forEach(tr => {
+                                const tds = tr.querySelectorAll('td');
+                                if (tds.length >= 2) {
+                                    const num = tds[0].textContent.trim();
+                                    const scr = tds[1].textContent.trim();
+                                    if (num.match(/^[0-9Ea-e]+\.$/) || num.match(/^[0-9Ea-e]+$/)) {
+                                        const colorClass = num.includes('E') ? 'text-yellow-500 dark:text-yellow-400' : 'text-blue-500 dark:text-blue-400';
+                                        scramblesList += `
+                                            <div onclick="this.classList.toggle('scramble-done')" class="cursor-pointer border border-gray-100 dark:border-gray-700 p-1 rounded text-10px font-mono select-none hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-gray-800 dark:text-gray-200">
+                                                <span class="${colorClass} font-bold mr-1">${num}</span>${scr}
+                                            </div>`;
+                                    }
+                                }
+                            });
+                            
+                            if (scramblesList) {
+                                eventScrambleHtml += `
+                                    <div class="mb-1.5 border border-gray-200 dark:border-gray-600 rounded shadow-sm bg-white dark:bg-gray-800">
+                                        <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-1 font-bold text-gray-800 dark:text-gray-100 text-10px uppercase flex items-center gap-1.5">
+                                            ${getEventIcon(eventId, 'w-3 h-3')} ${title}
+                                        </div>
+                                        <div class="p-1 flex flex-col gap-1">${scramblesList}</div>
+                                    </div>`;
+                            }
+                        }
+                    });
+                    return eventScrambleHtml;
+                } catch (err) {
+                    return ''; 
+                }
+            });
+
+            const results = await Promise.all(fetchPromises);
+            const combinedHtml = results.join('');
+            
+            if (combinedHtml) {
+                secE.innerHTML = combinedHtml;
+            } else {
+                secE.innerHTML = '<p class="text-9px text-gray-500 p-2 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded">Inga publicerade blandningar hittades för denna tävling ännu.</p>';
+            }
+            
+        } catch (e) {
+            secE.innerHTML = '<p class="text-9px text-red-500 p-2 text-center border border-dashed border-red-300 rounded">Kunde inte ladda blandningar. Försök igen senare.</p>';
+        }
+    }
+
+    // Startar hela appen!
+    fetchCompetitions();
+
+</script>
+</body>
+</html>
+
+
+```
