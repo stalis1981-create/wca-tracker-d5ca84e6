@@ -311,7 +311,20 @@
         currentWcifData = { persons: [], events: [] };
         currentCompId = null;
         globalResultsData = [];
+        stopAutoRefresh();
         renderCompetitionsList();
+    }
+
+    function startAutoRefresh() {
+        stopAutoRefresh();
+        autoRefreshTimer = setInterval(() => {
+            if (currentCompId) {
+                fetchAndRenderLiveResults();
+            }
+        }, 60000);
+    }
+    function stopAutoRefresh() {
+        if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
     }
 
     // --- TÄVLINGSLISTA ---
