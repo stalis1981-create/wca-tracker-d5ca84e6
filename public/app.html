@@ -984,7 +984,8 @@
 
     function renderResultsHTML() {
         const secB = document.getElementById('sectionB');
-        
+        renderEventFilter();
+
         if (!globalResultsData || globalResultsData.length === 0) {
             secB.innerHTML = `<div class="p-4 text-center border border-dashed border-gray-300 dark:border-gray-600 rounded-lg m-1"><span class="block text-xl mb-1">⏳</span><p class="text-9px text-gray-500 dark:text-gray-400">Inga resultat finns tillgängliga ännu. Tävlingen har antingen inte börjat eller så är resultaten inte publicerade.</p></div>`;
             return;
@@ -993,7 +994,13 @@
         let html = '';
         let shownCount = 0;
 
-        globalResultsData.forEach(eventRound => {
+        const selectedEvents = appState.eventFilterByComp[currentCompId];
+        const filteredData = globalResultsData.filter(er => {
+            if (!selectedEvents || selectedEvents.length === 0) return true;
+            return selectedEvents.includes(er.eventId);
+        });
+
+        filteredData.forEach(eventRound => {
             let rowsToRender = eventRound.results;
             
             if (appState.showOnlyTracked) {
@@ -1022,11 +1029,17 @@
                     const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40 border-l-2 border-blue-500' : 'bg-white dark:bg-gray-800 border-l-2 border-transparent';
                     const textClass = r.isTracked ? 'text-blue-800 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300';
                     const badgeHtml = r.isTracked && !appState.showOnlyTracked ? '<span class="ml-1.5 text-7px bg-blue-500 text-white px-1 py-0.5 rounded-sm uppercase tracking-wider">Vald</span>' : '';
+                    const starColor = r.isTracked ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600';
+                    const starIdRaw = r.wcaId || r.pId || r.pName;
+                    const starIdStr = String(starIdRaw).replace(/'/g, "\\'");
+                    const safeName = String(r.pName || '').replace(/'/g, "\\'");
+                    const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none px-0.5 ${starColor} hover:scale-110 transition-transform shrink-0" title="Stjärnmarkera">★</button>`;
 
                     rowsHtml += `
                         <div class="py-1 px-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0 text-10px ${bgClass}">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-1.5 truncate pr-1">
+                                    ${starBtn}
                                     <span class="font-mono text-gray-500 w-4 text-right shrink-0">${r.pos === 9999 ? '-' : r.pos}</span>
                                     <span class="truncate ${textClass}">${r.pName}</span>
                                     ${badgeHtml}
