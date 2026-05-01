@@ -1063,63 +1063,89 @@
 
             if (rowsToRender.length > 0) {
                 rowsToRender.sort((a, b) => (a.pos || 9999) - (b.pos || 9999));
-                
+
+                // Bestäm antal försök i denna runda (vanligen 5, men kan vara 1, 2 eller 3)
+                let attemptCount = 0;
+                rowsToRender.forEach(r => {
+                    if (r.attempts && r.attempts.length > attemptCount) attemptCount = r.attempts.length;
+                });
+                if (attemptCount === 0) attemptCount = 5;
+
+                const fmtAttempt = (val) => {
+                    if (val === -1) return 'DNF';
+                    if (val === -2) return 'DNS';
+                    if (val === 0 || val == null) return '';
+                    return formatWcaTime(val, eventRound.eventId);
+                };
+
+                // Kolumnrubriker: A1..An | Best | Avg
+                let headerCells = '';
+                for (let i = 1; i <= attemptCount; i++) {
+                    headerCells += `<span class="w-12 text-right tabular-nums">A${i}</span>`;
+                }
+                const headerRow = `
+                    <div class="flex items-center gap-1 px-1.5 py-1 bg-gray-100 dark:bg-gray-700/60 border-b border-gray-200 dark:border-gray-600 text-8px font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        <span class="w-5 shrink-0"></span>
+                        <span class="w-5 text-right shrink-0">#</span>
+                        <span class="flex-1 truncate">Namn</span>
+                        <div class="flex gap-1 shrink-0 font-mono">
+                            ${headerCells}
+                            <span class="w-12 text-right tabular-nums">Best</span>
+                            <span class="w-12 text-right tabular-nums">Avg</span>
+                        </div>
+                    </div>`;
+
                 let rowsHtml = '';
                 rowsToRender.forEach(r => {
                     let bestStr = (r.best && r.best > 0) ? formatWcaTime(r.best, eventRound.eventId) : (r.best === -1 ? 'DNF' : (r.best === -2 ? 'DNS' : '-'));
                     let avgStr = (r.average && r.average > 0) ? formatWcaTime(r.average, eventRound.eventId) : (r.average === -1 ? 'DNF' : (r.average === -2 ? 'DNS' : '-'));
-                    
-                    let attemptsStr = '';
-                    if (r.attempts && r.attempts.length > 0) {
-                        attemptsStr = r.attempts.map(a => {
-                            let val = a.result;
-                            if (val === -1) return 'DNF';
-                            if (val === -2) return 'DNS';
-                            if (val === 0) return '';
-                            return formatWcaTime(val, eventRound.eventId);
-                        }).filter(a => a !== '').join(', ');
+
+                    // attempts kan vara antingen [number] (från WCA Live-parsing) eller [{result:number}] (WCIF).
+                    let attemptCells = '';
+                    for (let i = 0; i < attemptCount; i++) {
+                        const a = r.attempts ? r.attempts[i] : undefined;
+                        let val;
+                        if (a == null) val = 0;
+                        else if (typeof a === 'object') val = a.result;
+                        else val = a;
+                        attemptCells += `<span class="w-12 text-right tabular-nums text-gray-600 dark:text-gray-400">${fmtAttempt(val)}</span>`;
                     }
 
                     const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40 border-l-2 border-blue-500' : 'bg-white dark:bg-gray-800 border-l-2 border-transparent';
                     const textClass = r.isTracked ? 'text-blue-800 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300';
-                    const badgeHtml = r.isTracked && !appState.showOnlyTracked ? '<span class="ml-1.5 text-7px bg-blue-500 text-white px-1 py-0.5 rounded-sm uppercase tracking-wider">Vald</span>' : '';
                     const starColor = r.isTracked ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600';
                     const starIdRaw = r.wcaId || r.pId || r.pName;
                     const starIdStr = String(starIdRaw).replace(/'/g, "\\'");
                     const safeName = String(r.pName || '').replace(/'/g, "\\'");
-                    const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none px-0.5 ${starColor} hover:scale-110 transition-transform shrink-0" title="Stjärnmarkera">★</button>`;
+                    const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none ${starColor} hover:scale-110 transition-transform shrink-0 w-5 text-center" title="Stjärnmarkera">★</button>`;
 
                     rowsHtml += `
-                        <div class="py-1 px-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0 text-10px ${bgClass}">
-                            <div class="flex justify-between items-center">
-                                <div class="flex items-center gap-1.5 truncate pr-1">
-                                    ${starBtn}
-                                    <span class="font-mono text-gray-500 w-4 text-right shrink-0">${r.pos === 9999 ? '-' : r.pos}</span>
-                                    <span class="truncate ${textClass}">${r.pName}</span>
-                                    ${badgeHtml}
-                                </div>
-                                <div class="flex gap-1.5 text-right shrink-0 font-mono">
-                                    <span class="w-35px text-9px text-gray-500 dark:text-gray-400" title="Bästa">${bestStr}</span>
-                                    <span class="w-35px text-9px font-bold ${r.isTracked ? 'text-blue-700 dark:text-blue-300' : 'text-gray-800 dark:text-gray-200'}" title="Snitt">${avgStr}</span>
-                                </div>
-                            </div>
-                            <div class="pl-6 text-8px text-gray-400 dark:text-gray-500 font-mono tracking-tighter mt-0.5 truncate">
-                                ${attemptsStr}
+                        <div class="flex items-center gap-1 px-1.5 py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px ${bgClass}">
+                            ${starBtn}
+                            <span class="font-mono text-gray-500 w-5 text-right shrink-0 tabular-nums">${r.pos === 9999 ? '-' : r.pos}</span>
+                            <span class="flex-1 truncate ${textClass}">${r.pName}</span>
+                            <div class="flex gap-1 shrink-0 font-mono text-9px">
+                                ${attemptCells}
+                                <span class="w-12 text-right tabular-nums text-gray-700 dark:text-gray-300" title="Bästa">${bestStr}</span>
+                                <span class="w-12 text-right tabular-nums font-bold ${r.isTracked ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}" title="Snitt">${avgStr}</span>
                             </div>
                         </div>
                     `;
                 });
 
                 html += `
-                    <div class="mb-1.5 border border-gray-200 dark:border-gray-600 rounded shadow-sm overflow-hidden">
+                    <div class="mb-1.5 border border-gray-200 dark:border-gray-600 rounded shadow-sm">
                         <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-1 flex items-center justify-between sticky top-0 z-10 shadow-sm">
                             <div class="flex items-center gap-1.5">
                                 ${getEventIcon(eventRound.eventId, 'w-3 h-3')}
                                 <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-10px">${eventRound.eventId} - ${eventRound.roundName}</span>
                             </div>
                         </div>
-                        <div class="bg-white dark:bg-gray-800">
-                            ${rowsHtml}
+                        <div class="bg-white dark:bg-gray-800 overflow-x-auto">
+                            <div class="min-w-max">
+                                ${headerRow}
+                                ${rowsHtml}
+                            </div>
                         </div>
                     </div>
                 `;
