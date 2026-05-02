@@ -809,6 +809,26 @@
         return false;
     }
 
+    // Bygg personliga rekord-uppslag (singel/snitt per gren) från WCIF-data.
+    // Detta används för att markera om ett resultat i tävlingen är en PB (PR).
+    function getPersonalBestsFor(wcaId, pName) {
+        const personsArray = (currentWcifData && currentWcifData.persons) ? currentWcifData.persons : [];
+        if (!personsArray.length) return null;
+        let person = null;
+        if (wcaId) person = personsArray.find(p => p.wcaId === wcaId);
+        if (!person && pName) {
+            const lower = pName.toLowerCase();
+            person = personsArray.find(p => p.name && p.name.toLowerCase() === lower);
+        }
+        if (!person || !person.personalBests) return null;
+        const lookup = {};
+        person.personalBests.forEach(pb => {
+            if (!lookup[pb.eventId]) lookup[pb.eventId] = { single: null, average: null };
+            lookup[pb.eventId][pb.type] = pb.best;
+        });
+        return lookup;
+    }
+
     function toggleResultFilter() {
         appState.showOnlyTracked = !appState.showOnlyTracked;
         saveState();
@@ -1011,6 +1031,9 @@
                                 const wcaId = res.person?.wcaId;
                                 const pName = res.person?.name || "Okänd";
                                 const pId = wcaId;
+                                const personalBests = getPersonalBestsFor(wcaId, pName);
+                                const pbSingle = personalBests?.[rr.eventId]?.single ?? null;
+                                const pbAverage = personalBests?.[rr.eventId]?.average ?? null;
                                 return {
                                     pId: pId,
                                     wcaId: wcaId,
@@ -1022,6 +1045,8 @@
                                     advancing: !!res.advancing,
                                     singleRecordTag: res.singleRecordTag || null,
                                     averageRecordTag: res.averageRecordTag || null,
+                                    pbSingle: pbSingle,
+                                    pbAverage: pbAverage,
                                     isTracked: isPersonTracked(wcaId, pId, pName)
                                 };
                             });
@@ -1051,6 +1076,26 @@
 
         let html = '';
         let shownCount = 0;
+
+        // Returnerar HTML-chip för en rekordtagg (WR/CR/NR/PR) i WCA Live-stil.
+        const recordTagChip = (tag) => {
+            if (!tag) return '';
+            const map = {
+                WR: 'bg-red-500 text-white',
+                CR: 'bg-yellow-400 text-gray-900',
+                NR: 'bg-green-500 text-white',
+                PR: 'bg-blue-500 text-white'
+            };
+            const cls = map[tag] || 'bg-gray-400 text-white';
+            return `<span class="ml-0.5 px-1 rounded font-bold text-[7px] leading-tight ${cls} align-middle">${tag}</span>`;
+        };
+
+        // Beräkna effektiv tagg: WCA Live-tagg har företräde, annars härleds PR från WCIF-PB.
+        const effectiveTag = (liveTag, currentVal, pbVal) => {
+            if (liveTag) return liveTag;
+            if (currentVal && currentVal > 0 && pbVal && pbVal > 0 && currentVal < pbVal) return 'PR';
+            return null;
+        };
 
         const selectedEvents = appState.eventFilterByComp[currentCompId];
         const filteredData = globalResultsData.filter(er => {
@@ -1115,7 +1160,7 @@
                         attemptCells += `<span class="w-12 text-right tabular-nums text-gray-600 dark:text-gray-400">${fmtAttempt(val)}</span>`;
                     }
 
-                    const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40 border-l-2 border-blue-500' : 'bg-white dark:bg-gray-800 border-l-2 border-transparent';
+                    const bgClass = r.isTracked ? 'bg-blue-50 dark:bg-blue-900/40' : 'bg-white dark:bg-gray-800';
                     const textClass = r.isTracked ? 'text-blue-800 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300';
                     const starColor = r.isTracked ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600';
                     const starIdRaw = r.wcaId || r.pId || r.pName;
@@ -1123,15 +1168,27 @@
                     const safeName = String(r.pName || '').replace(/'/g, "\\'");
                     const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none ${starColor} hover:scale-110 transition-transform shrink-0 w-5 text-center" title="Stjärnmarkera">★</button>`;
 
+                    // WCA Live-stil: gul bakgrund på platssiffran om deltagaren går vidare.
+                    const posCellClass = r.advancing
+                        ? 'bg-yellow-200 dark:bg-yellow-500/40 text-gray-900 dark:text-yellow-100 font-bold'
+                        : 'text-gray-500';
+                    const posCell = `<span class="font-mono w-5 text-right shrink-0 tabular-nums rounded-sm px-0.5 ${posCellClass}" title="${r.advancing ? 'Går vidare till nästa runda' : ''}">${r.pos === 9999 ? '-' : r.pos}</span>`;
+
+                    // Rekordtaggar (WCA Live-stil) med PR-fallback från WCIF-personbästa.
+                    const singleTag = effectiveTag(r.singleRecordTag, r.best, r.pbSingle);
+                    const averageTag = effectiveTag(r.averageRecordTag, r.average, r.pbAverage);
+                    const bestChip = recordTagChip(singleTag);
+                    const avgChip = recordTagChip(averageTag);
+
                     rowsHtml += `
                         <div class="flex items-center gap-1 px-1.5 py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px ${bgClass}">
                             ${starBtn}
-                            <span class="font-mono text-gray-500 w-5 text-right shrink-0 tabular-nums">${r.pos === 9999 ? '-' : r.pos}</span>
+                            ${posCell}
                             <span class="flex-1 truncate ${textClass}">${r.pName}</span>
                             <div class="flex gap-1 shrink-0 font-mono text-9px">
                                 ${attemptCells}
-                                <span class="w-12 text-right tabular-nums text-gray-700 dark:text-gray-300" title="Bästa">${bestStr}</span>
-                                <span class="w-12 text-right tabular-nums font-bold ${r.isTracked ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}" title="Snitt">${avgStr}</span>
+                                <span class="w-14 text-right tabular-nums text-gray-700 dark:text-gray-300 whitespace-nowrap" title="Bästa">${bestStr}${bestChip}</span>
+                                <span class="w-14 text-right tabular-nums font-bold whitespace-nowrap ${r.isTracked ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}" title="Snitt">${avgStr}${avgChip}</span>
                             </div>
                         </div>
                     `;
