@@ -809,6 +809,26 @@
         return false;
     }
 
+    // Bygg personliga rekord-uppslag (singel/snitt per gren) från WCIF-data.
+    // Detta används för att markera om ett resultat i tävlingen är en PB (PR).
+    function getPersonalBestsFor(wcaId, pName) {
+        const personsArray = (currentWcifData && currentWcifData.persons) ? currentWcifData.persons : [];
+        if (!personsArray.length) return null;
+        let person = null;
+        if (wcaId) person = personsArray.find(p => p.wcaId === wcaId);
+        if (!person && pName) {
+            const lower = pName.toLowerCase();
+            person = personsArray.find(p => p.name && p.name.toLowerCase() === lower);
+        }
+        if (!person || !person.personalBests) return null;
+        const lookup = {};
+        person.personalBests.forEach(pb => {
+            if (!lookup[pb.eventId]) lookup[pb.eventId] = { single: null, average: null };
+            lookup[pb.eventId][pb.type] = pb.best;
+        });
+        return lookup;
+    }
+
     function toggleResultFilter() {
         appState.showOnlyTracked = !appState.showOnlyTracked;
         saveState();
