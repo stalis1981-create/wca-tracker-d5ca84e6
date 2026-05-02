@@ -1091,10 +1091,16 @@
             return `<span class="ml-0.5 px-1 rounded font-bold text-[7px] leading-tight ${cls} align-middle">${tag}</span>`;
         };
 
-        // Beräkna effektiv tagg: WCA Live-tagg har företräde, annars härleds PR från WCIF-PB.
+        // Beräkna effektiv tagg.
+        // WR/CR/NR från WCA Live behålls som de är.
+        // PR visas BARA om resultatet faktiskt är bättre än personens registrerade PB
+        // före tävlingen (från WCIF). Saknas PB-data behåller vi inte WCA Live:s PR-tagg
+        // eftersom vi inte kan verifiera den korrekt.
         const effectiveTag = (liveTag, currentVal, pbVal) => {
-            if (liveTag) return liveTag;
-            if (currentVal && currentVal > 0 && pbVal && pbVal > 0 && currentVal < pbVal) return 'PR';
+            if (liveTag && liveTag !== 'PR') return liveTag; // WR/CR/NR har företräde
+            if (!currentVal || currentVal <= 0) return null;
+            if (!pbVal || pbVal <= 0) return null; // okänd PB → kan ej verifieras
+            if (currentVal < pbVal) return 'PR';
             return null;
         };
 
