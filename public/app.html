@@ -31,12 +31,12 @@
 
     <style>
         body {
-            background-color: #f3f4f6;
+            background-color: #fafafa;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             -webkit-tap-highlight-color: transparent;
             transition: background-color 0.3s;
         }
-        html.dark body { background-color: #111827; }
+        html.dark body { background-color: #121212; }
         .app-container {
             max-width: 33.75rem; 
             margin: 0 auto;
@@ -46,7 +46,7 @@
             position: relative;
             transition: background-color 0.3s, color 0.3s;
         }
-        html.dark .app-container { background-color: #1f2937; color: #f3f4f6; }
+        html.dark .app-container { background-color: #212121; color: #fafafa; }
         
         .page { display: none; padding: 0.5rem; padding-bottom: 2.5rem; } 
         .page.active { display: block; }
@@ -68,8 +68,9 @@
             color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.2s; font-size: 0.75rem;
         }
         html.dark .tab-btn { color: #9ca3af; }
-        .tab-btn.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
-        html.dark .tab-btn.active { color: #60a5fa; border-color: #60a5fa; }
+        /* WCA Live använder Material blue (#1976d2) */
+        .tab-btn.active { color: #1976d2; border-bottom: 2px solid #1976d2; }
+        html.dark .tab-btn.active { color: #90caf9; border-color: #90caf9; }
         
         .custom-scroll::-webkit-scrollbar { width: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
