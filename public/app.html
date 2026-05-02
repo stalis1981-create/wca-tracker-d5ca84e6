@@ -1011,6 +1011,9 @@
                                 const wcaId = res.person?.wcaId;
                                 const pName = res.person?.name || "Okänd";
                                 const pId = wcaId;
+                                const personalBests = getPersonalBestsFor(wcaId, pName);
+                                const pbSingle = personalBests?.[rr.eventId]?.single ?? null;
+                                const pbAverage = personalBests?.[rr.eventId]?.average ?? null;
                                 return {
                                     pId: pId,
                                     wcaId: wcaId,
@@ -1022,6 +1025,8 @@
                                     advancing: !!res.advancing,
                                     singleRecordTag: res.singleRecordTag || null,
                                     averageRecordTag: res.averageRecordTag || null,
+                                    pbSingle: pbSingle,
+                                    pbAverage: pbAverage,
                                     isTracked: isPersonTracked(wcaId, pId, pName)
                                 };
                             });
