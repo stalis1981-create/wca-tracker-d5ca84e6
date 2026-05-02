@@ -1204,9 +1204,9 @@
                 html += `
                     <div class="mb-1.5 border border-gray-200 dark:border-gray-600 rounded shadow-sm">
                         <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-1 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-                            <div class="flex items-center gap-1.5">
-                                ${getEventIcon(eventRound.eventId, 'w-3 h-3')}
-                                <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-10px">${eventRound.eventId} - ${eventRound.roundName}</span>
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                ${getEventIcon(eventRound.eventId, 'w-4 h-4')}
+                                <span class="font-bold text-gray-800 dark:text-gray-100 text-10px truncate" title="${eventRound.eventId} - ${eventRound.roundName}">${eventRound.roundName}</span>
                             </div>
                         </div>
                         <div class="bg-white dark:bg-gray-800 overflow-x-auto">
