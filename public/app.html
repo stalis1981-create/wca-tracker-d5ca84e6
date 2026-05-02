@@ -1077,6 +1077,26 @@
         let html = '';
         let shownCount = 0;
 
+        // Returnerar HTML-chip för en rekordtagg (WR/CR/NR/PR) i WCA Live-stil.
+        const recordTagChip = (tag) => {
+            if (!tag) return '';
+            const map = {
+                WR: 'bg-red-500 text-white',
+                CR: 'bg-yellow-400 text-gray-900',
+                NR: 'bg-green-500 text-white',
+                PR: 'bg-blue-500 text-white'
+            };
+            const cls = map[tag] || 'bg-gray-400 text-white';
+            return `<span class="ml-0.5 px-1 rounded font-bold text-[7px] leading-tight ${cls} align-middle">${tag}</span>`;
+        };
+
+        // Beräkna effektiv tagg: WCA Live-tagg har företräde, annars härleds PR från WCIF-PB.
+        const effectiveTag = (liveTag, currentVal, pbVal) => {
+            if (liveTag) return liveTag;
+            if (currentVal && currentVal > 0 && pbVal && pbVal > 0 && currentVal < pbVal) return 'PR';
+            return null;
+        };
+
         const selectedEvents = appState.eventFilterByComp[currentCompId];
         const filteredData = globalResultsData.filter(er => {
             if (!selectedEvents || selectedEvents.length === 0) return true;
