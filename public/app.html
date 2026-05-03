@@ -182,7 +182,7 @@
 
     const BASE_URL = "https://www.worldcubeassociation.org/api/v0";
     
-    let appState = { trackedByComp: {}, favComps: [], theme: 'dark', showOnlyTracked: true, textSizeMode: 0, eventFilterByComp: {} };
+    let appState = { trackedByComp: {}, favComps: [], theme: 'dark', showOnlyTracked: true, textSizeMode: 0, eventFilterByComp: {}, showStage: false, hiddenScheduleDays: {} };
     try {
         const saved = localStorage.getItem('wcaTrackerState');
         if (saved) {
@@ -272,11 +272,12 @@
         try {
             wcif.schedule.venues.forEach(venue => {
                 (venue.rooms || []).forEach(room => {
+                    const roomName = room.name || '';
                     (room.activities || []).forEach(activity => {
-                        activityMap[activity.id] = activity;
+                        activityMap[activity.id] = { ...activity, roomName };
                         if (activity.childActivities) {
                             activity.childActivities.forEach(child => {
-                                activityMap[child.id] = child;
+                                activityMap[child.id] = { ...child, roomName };
                             });
                         }
                     });
