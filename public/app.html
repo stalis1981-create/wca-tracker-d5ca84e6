@@ -705,13 +705,14 @@
                                 if (ass.activity.activityCode) {
                                     eventId = ass.activity.activityCode.split('-')[0] || "Övrigt";
                                     const parts = ass.activity.activityCode.split('-');
-                                    let r = parts.length > 1 ? parts[1].toUpperCase() : '';
                                     let g = parts.length > 2 ? parts[2].toUpperCase() : '';
-                                    roundGroupHtml = `<span class="text-gray-700 dark:text-gray-300 font-bold text-9px ml-1">${r} ${g}</span>`;
+                                    // Visa endast grupp (G1/G2…) – hoppa över rundnamnet (R1/R2) för att spara plats.
+                                    roundGroupHtml = g ? `<span class="text-gray-700 dark:text-gray-300 font-bold text-9px ml-1">${g}</span>` : '';
                                 }
                             }
 
-                            let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-3 h-3')} <span class="uppercase font-bold text-8px text-gray-500 dark:text-gray-400">${eventId}</span></div>` : '';
+                            // Endast ikonen för att undvika att texten krockar.
+                            let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-4 h-4')}</div>` : '';
 
                             rowsHtml += `
                                 <div class="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px">
