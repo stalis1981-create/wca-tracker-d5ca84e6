@@ -669,12 +669,19 @@
 
                 // Sektion C: Schema
                 let scheduleHtml = '<p class="text-gray-500 dark:text-gray-400 text-9px p-1">Inga grupper.</p>';
+                const hiddenDays = (appState.hiddenScheduleDays && appState.hiddenScheduleDays[currentCompId]) || [];
                 if (person.assignments && person.assignments.length > 0) {
                     const enrichedAssignments = person.assignments.map(ass => ({
                         ...ass,
                         activity: activityMap[ass.activityId],
                         startTime: activityMap[ass.activityId] ? new Date(activityMap[ass.activityId].startTime) : new Date(0)
-                    })).sort((a, b) => a.startTime - b.startTime);
+                    }))
+                    .filter(ass => {
+                        if (ass.startTime.getTime() === 0) return true;
+                        const dayKey = ass.startTime.toISOString().slice(0, 10);
+                        return !hiddenDays.includes(dayKey);
+                    })
+                    .sort((a, b) => a.startTime - b.startTime);
 
                     const groupedByDay = {};
                     enrichedAssignments.forEach(ass => {
@@ -721,11 +728,15 @@
 
                             // Endast ikonen för att undvika att texten krockar.
                             let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-4 h-4')}</div>` : '';
+                            const stageName = (ass.activity && ass.activity.roomName) ? ass.activity.roomName : '';
+                            const stageHtml = (appState.showStage && stageName)
+                                ? `<span class="text-7px text-gray-500 dark:text-gray-400 ml-1 truncate">${stageName}</span>`
+                                : '';
 
                             rowsHtml += `
                                 <div class="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px">
                                     <div class="font-semibold text-gray-800 dark:text-gray-200 w-8 flex-shrink-0 leading-tight">${timeStr}</div>
-                                    <div class="flex items-center flex-grow truncate px-1 min-w-0">${eventIconHtml}${roundGroupHtml}</div>
+                                    <div class="flex items-center flex-grow truncate px-1 min-w-0">${eventIconHtml}${roundGroupHtml}${stageHtml}</div>
                                     <div class="flex-shrink-0 ml-1">
                                         <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
                                     </div>
