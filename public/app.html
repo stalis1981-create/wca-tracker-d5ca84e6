@@ -1174,11 +1174,11 @@
                     const safeName = String(r.pName || '').replace(/'/g, "\\'");
                     const starBtn = `<button onclick="toggleStarFromResult('${starIdStr}','${safeName}')" class="text-sm leading-none ${starColor} hover:scale-110 transition-transform shrink-0 w-5 text-center" title="Stjärnmarkera">★</button>`;
 
-                    // WCA Live-stil: ljusgul bakgrund (#fff9c4) på platssiffran om deltagaren går vidare.
+                    // WCA Live-stil: grön bakgrund för platser som går vidare.
                     const posCellStyle = r.advancing
-                        ? 'background-color:#fff9c4;color:#212121;font-weight:bold;'
+                        ? 'background-color:#a5d6a7;color:#1b5e20;font-weight:bold;'
                         : '';
-                    const posCell = `<span class="font-mono w-5 text-right shrink-0 tabular-nums rounded-sm px-0.5 ${r.advancing ? '' : 'text-gray-500'}" style="${posCellStyle}" title="${r.advancing ? 'Går vidare till nästa runda' : ''}">${r.pos === 9999 ? '-' : r.pos}</span>`;
+                    const posCell = `<span class="font-mono w-5 text-center shrink-0 tabular-nums rounded-sm px-0.5 ${r.advancing ? '' : 'text-gray-500'}" style="${posCellStyle}" title="${r.advancing ? 'Går vidare till nästa runda' : ''}">${r.pos === 9999 ? '-' : r.pos}</span>`;
 
                     // Rekordtaggar (WCA Live-stil) med PR-fallback från WCIF-personbästa.
                     const singleTag = effectiveTag(r.singleRecordTag, r.best, r.pbSingle);
