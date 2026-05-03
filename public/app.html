@@ -203,18 +203,17 @@
 
     // Tillämpa Textstorlek (Global skalning)
     function applyTextSize() {
-        const sizes = ['16px', '18px', '21px']; // Normal, Stor, Störst
-        const mode = appState.textSizeMode || 0;
+        const sizes = ['14px', '16px', '18px', '21px', '24px', '28px'];
+        const mode = Math.max(0, Math.min((appState.textSizeMode || 0), sizes.length - 1));
         document.documentElement.style.fontSize = sizes[mode];
     }
 
     function toggleTextSize() {
-        appState.textSizeMode = ((appState.textSizeMode || 0) + 1) % 3;
+        const total = 6;
+        appState.textSizeMode = ((appState.textSizeMode || 0) + 1) % total;
         applyTextSize();
         saveState();
-        
-        const labels = ["Normal storlek", "Stor text", "Störst text"];
-        showToast(`🔍 ${labels[appState.textSizeMode]}`);
+        showToast(`🔍 Textstorlek ${appState.textSizeMode + 1}/6`);
     }
 
     // Tema-hantering
