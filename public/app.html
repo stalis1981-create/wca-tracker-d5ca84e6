@@ -150,7 +150,14 @@
             </div>
 
             <div>
-                <h3 class="font-bold text-blue-600 dark:text-blue-400 mb-1 text-11px uppercase tracking-wide">Schema</h3>
+                <div class="flex justify-between items-center mb-1 flex-wrap gap-1">
+                    <h3 class="font-bold text-blue-600 dark:text-blue-400 text-11px uppercase tracking-wide">Schema</h3>
+                    <label class="flex items-center gap-1 text-9px text-gray-700 dark:text-gray-300 cursor-pointer">
+                        <input type="checkbox" id="showStageChk" onchange="toggleShowStage()" class="w-3 h-3"/>
+                        Visa stage
+                    </label>
+                </div>
+                <div id="dayFilterBox" class="flex flex-wrap gap-1 mb-1.5"></div>
                 <div id="sectionC" class="grid gap-1 items-start"></div>
             </div>
 
