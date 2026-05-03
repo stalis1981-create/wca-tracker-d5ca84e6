@@ -845,6 +845,79 @@
         renderResultsHTML();
     }
 
+    function toggleShowStage() {
+        appState.showStage = !appState.showStage;
+        saveState();
+        renderDashboard();
+    }
+
+    function toggleScheduleDay(dayKey) {
+        if (!appState.hiddenScheduleDays) appState.hiddenScheduleDays = {};
+        if (!appState.hiddenScheduleDays[currentCompId]) appState.hiddenScheduleDays[currentCompId] = [];
+        const arr = appState.hiddenScheduleDays[currentCompId];
+        const i = arr.indexOf(dayKey);
+        if (i >= 0) arr.splice(i, 1); else arr.push(dayKey);
+        saveState();
+        renderDashboard();
+    }
+
+    function setAllScheduleDays(showAll) {
+        if (!appState.hiddenScheduleDays) appState.hiddenScheduleDays = {};
+        if (showAll) {
+            appState.hiddenScheduleDays[currentCompId] = [];
+        } else {
+            // hide past days only
+            const allDays = collectScheduleDays();
+            const todayKey = new Date().toISOString().slice(0, 10);
+            appState.hiddenScheduleDays[currentCompId] = allDays.filter(d => d < todayKey);
+        }
+        saveState();
+        renderDashboard();
+    }
+
+    function collectScheduleDays() {
+        const trackedList = appState.trackedByComp[currentCompId] || [];
+        const personsArray = currentWcifData.persons || [];
+        const set = new Set();
+        trackedList.forEach(id => {
+            const idStr = String(id);
+            const person = personsArray.find(p => String(p.wcaUserId) === idStr || String(p.registrantId) === idStr);
+            if (!person || !person.assignments) return;
+            person.assignments.forEach(ass => {
+                const act = activityMap[ass.activityId];
+                if (act && act.startTime) {
+                    set.add(new Date(act.startTime).toISOString().slice(0, 10));
+                }
+            });
+        });
+        return [...set].sort();
+    }
+
+    function renderDayFilter() {
+        const box = document.getElementById('dayFilterBox');
+        if (!box) return;
+        const days = collectScheduleDays();
+        if (days.length === 0) { box.innerHTML = ''; return; }
+        if (!appState.hiddenScheduleDays) appState.hiddenScheduleDays = {};
+        const hidden = appState.hiddenScheduleDays[currentCompId] || [];
+        const allBtn = `<button onclick="setAllScheduleDays(true)" class="text-7px bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded shadow-sm">Alla</button>
+                       <button onclick="setAllScheduleDays(false)" class="text-7px bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded shadow-sm">Dölj tidigare</button>`;
+        const chips = days.map(d => {
+            const on = !hidden.includes(d);
+            const cls = on
+                ? 'bg-blue-500 text-white border-blue-500'
+                : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 opacity-60';
+            let label = d;
+            try {
+                label = new Intl.DateTimeFormat('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(d + 'T12:00:00'));
+            } catch(e) {}
+            return `<button onclick="toggleScheduleDay('${d}')" class="text-8px px-1.5 py-0.5 rounded border ${cls} transition">${label}</button>`;
+        }).join('');
+        box.innerHTML = allBtn + chips;
+        const chk = document.getElementById('showStageChk');
+        if (chk) chk.checked = !!appState.showStage;
+    }
+
     function renderEventFilter() {
         const box = document.getElementById('eventFilterBox');
         if (!box) return;
