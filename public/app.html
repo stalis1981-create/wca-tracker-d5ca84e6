@@ -632,7 +632,7 @@
             const gridClassD = trackedList.length === 1 ? 'grid-cols-1' : (trackedList.length === 2 ? 'grid-cols-2' : 'grid-cols-3');
 
             secA.className = `grid ${gridClassAC} gap-1`;
-            secC.className = `grid ${gridClassAC} gap-1 items-start`;
+            secC.className = `grid grid-cols-1 gap-1 items-start`;
             secD.className = `grid ${gridClassD} gap-1 items-start`;
 
             const personsArray = currentWcifData.persons || [];
