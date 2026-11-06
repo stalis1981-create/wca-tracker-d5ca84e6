@@ -735,12 +735,10 @@
                                 : '';
 
                             rowsHtml += `
-                                <div class="flex items-center justify-between py-1 border-b border-gray-100 dark:border-gray-700 last:border-0 text-9px">
-                                    <div class="font-semibold text-gray-800 dark:text-gray-200 w-8 flex-shrink-0 leading-tight">${timeStr}</div>
-                                    <div class="flex items-center flex-grow truncate px-1 min-w-0">${eventIconHtml}${roundGroupHtml}${stageHtml}</div>
-                                    <div class="flex-shrink-0 ml-1">
-                                        <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
-                                    </div>
+                                <div class="flex items-center gap-1 px-1 py-0.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-9px">
+                                    <span class="font-semibold text-gray-800 dark:text-gray-200 leading-tight">${timeStr}</span>
+                                    ${eventIconHtml}${roundGroupHtml}${stageHtml}
+                                    <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
                                 </div>
                             `;
                         });
@@ -750,7 +748,7 @@
                                 <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 flex items-center">
                                     <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-9px">${dayStr}</span>
                                 </div>
-                                <div class="px-1.5 py-0 bg-white dark:bg-gray-800">
+                                <div class="px-1.5 py-1 flex flex-wrap gap-1 bg-white dark:bg-gray-800">
                                     ${rowsHtml}
                                 </div>
                             </div>
@@ -760,8 +758,8 @@
                 }
                 
                 secC.innerHTML += `
-                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm max-h-56 overflow-y-auto custom-scroll">
-                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 sticky top-0 bg-white dark:bg-gray-900 pb-0.5 z-10 truncate">${person.name || "Okänd"}</h4>
+                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm">
+                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 truncate">${person.name || "Okänd"}</h4>
                         ${scheduleHtml}
                     </div>
                 `;
