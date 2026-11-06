@@ -731,11 +731,11 @@
                             let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-4 h-4')}</div>` : '';
                             const stageName = (ass.activity && ass.activity.roomName) ? ass.activity.roomName : '';
                             const stageHtml = (appState.showStage && stageName)
-                                ? `<span class="text-7px text-gray-500 dark:text-gray-400 ml-1 truncate">${stageName}</span>`
+                                ? `<span class="text-7px text-gray-500 dark:text-gray-400 ml-1 break-words">${stageName}</span>`
                                 : '';
 
                             rowsHtml += `
-                                <div class="flex items-center gap-1 px-1 py-0.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-9px">
+                                <div class="flex items-center gap-1 flex-wrap w-full px-1 py-0.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-9px">
                                     <span class="font-semibold text-gray-800 dark:text-gray-200 leading-tight">${timeStr}</span>
                                     ${eventIconHtml}${roundGroupHtml}${stageHtml}
                                     <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
@@ -748,7 +748,7 @@
                                 <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 flex items-center">
                                     <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-9px">${dayStr}</span>
                                 </div>
-                                <div class="px-1.5 py-1 flex flex-wrap gap-1 bg-white dark:bg-gray-800">
+                                <div class="px-1.5 py-1 flex flex-col gap-1 bg-white dark:bg-gray-800">
                                     ${rowsHtml}
                                 </div>
                             </div>
