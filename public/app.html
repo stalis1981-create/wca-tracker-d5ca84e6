@@ -636,6 +636,7 @@
             secD.className = `grid ${gridClassD} gap-1 items-start`;
 
             const personsArray = currentWcifData.persons || [];
+            const scheduleByPerson = [];
 
             trackedList.forEach(id => {
                 const idStr = String(id);
@@ -668,101 +669,20 @@
                     </div>
                 `;
 
-                // Sektion C: Schema
-                let scheduleHtml = '<p class="text-gray-500 dark:text-gray-400 text-9px p-1">Inga grupper.</p>';
+                // Sektion C: Schema – samla personens tider, renderas per gren efter loopen
                 const hiddenDays = (appState.hiddenScheduleDays && appState.hiddenScheduleDays[currentCompId]) || [];
-                if (person.assignments && person.assignments.length > 0) {
-                    const enrichedAssignments = person.assignments.map(ass => ({
-                        ...ass,
-                        activity: activityMap[ass.activityId],
-                        startTime: activityMap[ass.activityId] ? new Date(activityMap[ass.activityId].startTime) : new Date(0)
-                    }))
-                    .filter(ass => {
-                        if (ass.startTime.getTime() === 0) return true;
-                        const dayKey = ass.startTime.toISOString().slice(0, 10);
-                        return !hiddenDays.includes(dayKey);
-                    })
-                    .sort((a, b) => a.startTime - b.startTime);
-
-                    const groupedByDay = {};
-                    enrichedAssignments.forEach(ass => {
-                        let dayStr = "Okänt datum";
-                        if (ass.startTime.getTime() !== 0) {
-                            try {
-                                dayStr = new Intl.DateTimeFormat('sv-SE', { weekday: 'long', month: 'short', day: 'numeric' }).format(ass.startTime);
-                                dayStr = dayStr.charAt(0).toUpperCase() + dayStr.slice(1);
-                            } catch(e) {}
-                        }
-                        if (!groupedByDay[dayStr]) groupedByDay[dayStr] = [];
-                        groupedByDay[dayStr].push(ass);
-                    });
-
-                    let allGroupsHtml = '';
-                    for (const [dayStr, dayAss] of Object.entries(groupedByDay)) {
-                        let rowsHtml = '';
-                        dayAss.forEach(ass => {
-                            let roleStr = ass.assignmentCode;
-                            const roles = {'competitor': 'Tävlande', 'judge': 'Domare', 'scrambler': 'Blandare', 'runner': 'Löpare', 'staff-runner': 'Domare', 'staff-judge': 'Domare'};
-                            roleStr = roles[roleStr] || roleStr;
-                            
-                            let roleClasses = 'bg-gray-500 text-white';
-                            if (roleStr === 'Tävlande') roleClasses = 'bg-green-500 text-white';
-                            else if (roleStr === 'Domare') roleClasses = 'bg-blue-500 text-white';
-                            
-                            let timeStr = "-";
-                            let roundGroupHtml = "";
-                            let eventId = "Övrigt";
-
-                            if (ass.activity) {
-                                try {
-                                    timeStr = new Intl.DateTimeFormat('sv-SE', { hour: '2-digit', minute: '2-digit' }).format(ass.startTime);
-                                } catch(e) {}
-                                
-                                if (ass.activity.activityCode) {
-                                    eventId = ass.activity.activityCode.split('-')[0] || "Övrigt";
-                                    const parts = ass.activity.activityCode.split('-');
-                                    let g = parts.length > 2 ? parts[2].toUpperCase() : '';
-                                    // Visa endast grupp (G1/G2…) – hoppa över rundnamnet (R1/R2) för att spara plats.
-                                    roundGroupHtml = g ? `<span class="text-gray-700 dark:text-gray-300 font-bold text-9px ml-1">${g}</span>` : '';
-                                }
-                            }
-
-                            // Endast ikonen för att undvika att texten krockar.
-                            let eventIconHtml = eventId !== "Övrigt" ? `<div class="flex items-center gap-1">${getEventIcon(eventId, 'w-4 h-4')}</div>` : '';
-                            const stageName = (ass.activity && ass.activity.roomName) ? ass.activity.roomName : '';
-                            const stageHtml = (appState.showStage && stageName)
-                                ? `<span class="text-7px text-gray-500 dark:text-gray-400 ml-1 break-words">${stageName}</span>`
-                                : '';
-
-                            rowsHtml += `
-                                <div class="flex items-center gap-1 flex-wrap w-full px-1 py-0.5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-9px">
-                                    <span class="font-semibold text-gray-800 dark:text-gray-200 leading-tight">${timeStr}</span>
-                                    ${eventIconHtml}${roundGroupHtml}${stageHtml}
-                                    <span class="px-1 py-0.5 rounded shadow-sm font-bold tracking-wide text-7px ${roleClasses}">${roleStr}</span>
-                                </div>
-                            `;
-                        });
-                        
-                        allGroupsHtml += `
-                            <div class="mb-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded shadow-sm overflow-hidden">
-                                <div class="bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 flex items-center">
-                                    <span class="font-bold text-gray-800 dark:text-gray-100 uppercase text-9px">${dayStr}</span>
-                                </div>
-                                <div class="px-1.5 py-1 flex flex-col gap-1 bg-white dark:bg-gray-800">
-                                    ${rowsHtml}
-                                </div>
-                            </div>
-                        `;
-                    }
-                    scheduleHtml = `<div class="pr-0.5">${allGroupsHtml}</div>`;
-                }
-                
-                secC.innerHTML += `
-                    <div class="bg-white dark:bg-gray-900 border dark:border-gray-700 p-1.5 rounded shadow-sm">
-                        <h4 class="font-bold text-gray-800 dark:text-gray-200 text-10px mb-1 truncate">${person.name || "Okänd"}</h4>
-                        ${scheduleHtml}
-                    </div>
-                `;
+                const enrichedAssignments = (person.assignments || []).map(ass => ({
+                    ...ass,
+                    activity: activityMap[ass.activityId],
+                    startTime: activityMap[ass.activityId] ? new Date(activityMap[ass.activityId].startTime) : new Date(0)
+                }))
+                .filter(ass => {
+                    if (ass.startTime.getTime() === 0) return true;
+                    const dayKey = ass.startTime.toISOString().slice(0, 10);
+                    return !hiddenDays.includes(dayKey);
+                })
+                .sort((a, b) => a.startTime - b.startTime);
+                scheduleByPerson.push({ name: person.name || "Okänd", assignments: enrichedAssignments });
 
                 // Sektion D: Personbästa
                 let pbHtml = '<p class="text-gray-500 dark:text-gray-400 text-9px p-1">Nybörjare</p>';
